@@ -1,0 +1,175 @@
+----------------------------------------------------------------------------------------------
+version			0.9 (#0.9, 30.01.2018 16:08:45)
+----------------------------------------------------------------------------------------------
+@method			stma_openlayers
+@description	Momentan ist OpenLayers 4.5.0 eingebunden.
+
+@returns		{null} -
+
+@since			v0.0
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+@method			initMap
+@description	initialisiert die Karte
+				Beispiel:
+				mymap = new stma_openlayers();
+				mymap.initMap(25832, {}, {});
+
+@argument		_epsgCode {int} EPSG-Code des Koordinatensystems.
+				Unterstütze Werte sind: 25832, 3857
+				
+@argument		_mapParams {object}
+				zusätzliche Parameter für das OpenLayer-Map-Objekt
+				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.Map.html
+
+@argument		_viewParams {object}
+				zusätzliche Parameter für das OpenLayer-View-Objekt
+				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.View.html
+
+@returns		{null} -
+
+@since			v0.0
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+@method			addEsriLayer
+@description	fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) hinzu.
+				Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
+				10:	gecacht
+				20: gecacht - Kartendienst des Stadtmessungsamtes
+				40: dynamisch
+				50: dynamisch - Kartendienst des Stadtmessungsamtes
+				
+				Beispiel:
+				mymap.addEsriLayer("https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer");
+
+@argument		_url {String} URL des Kartendienstes
+				Kartendienste des Stadtmessungsamtes sollten über die Funktion addStmaEsriLayer hinzugefügt werden.
+
+@argument		_layerParams {object}
+				zusätzliche Parameter für das OpenLayer-Layer-Objekt
+				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.layer.html
+
+@argument		_sourceParams {object}
+				zusätzliche Parameter für das OpenLayer-Source-Objekt
+				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
+
+@returns		{null} -
+
+@since			v0.0
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+@method			addStmaEsriLayer
+@description	fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) des Stadtmessungsamtes hinzu.
+				Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
+				10:	gecacht
+				20: gecacht - Kartendienst des Stadtmessungsamtes
+				40: dynamisch
+				50: dynamisch - Kartendienst des Stadtmessungsamtes
+				
+				Beispiel:
+				mymap.addStmaEsriLayer("1_Base/Stadtkarte_Internet_c");
+
+@argument		_mapservice {String} Bezeichnung des Kartendienstes
+				Wenn die URL des Kartendienstes beispielsweise https://SERVER/ArcGIS/rest/services/ORDNER/KARTENDIENST/MapServer heißt,
+				so sollte ORDNER/KARTENDIENST angegeben werden.
+
+@argument		_layerParams {object}
+				zusätzliche Parameter für das OpenLayer-Layer-Objekt
+				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.layer.html
+
+@argument		_sourceParams {object}
+				zusätzliche Parameter für das OpenLayer-Source-Objekt
+				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
+
+@returns		{null} -
+
+@since			v0.0
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+@method			addStmaBaseLayer
+@description	fügt einen Basis-Kartendienst (dynamisch / gecacht) des Stadtmessungsamtes hinzu.
+				Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
+				10: gecacht
+				20: gecacht - Kartendienst des Stadtmessungsamtes
+				40: dynamisch
+				50: dynamisch - Kartendienst des Stadtmessungsamtes
+				
+				Beispiel:
+				mymap.addStmaBaseLayer("Grundkarte");
+				mymap.addStmaBaseLayer("Luftbild");
+
+@argument		_mapname {String} sprechende Bezeichnung des Kartendienstes
+				Für ausgewählte Basiskartendienste kann hierüber über eine sprechende Bezeichnung der Kartendienst hinzugefügt werden.
+				Eventuelle Kartendienstnamenänderungen werden automatisch von der API berücksichtigt.
+				Deswegen sollten die Basiskarten (Grundkarte, Luftbild, ..) immer über diese Funktion eingebundne werden.
+
+@argument		_layerParams {object}
+				zusätzliche Parameter für das OpenLayer-Layer-Objekt
+				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.layer.html
+
+@argument		_sourceParams {object}
+				zusätzliche Parameter für das OpenLayer-Source-Objekt
+				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
+
+@returns		{null} -
+
+@since			v0.0
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+@method			addPoints
+@description	fügt einzelne Punkte hinzu.
+				Wenn nichts anderes angegeben ist, dann gilt der zIndex 60.
+				
+				Beispiel:
+				mymap.addPoints([[3513223, 5405026]], "images/target.png");
+
+@argument		_pointCoords {Array} Array von Koordinatenpaaren
+				[ [x,y], [x,y], ... ]
+
+@argument		_imageURL {String} URL zu dem Bild des Punktes / Data-URL des Bildes
+
+@returns		{null} -
+
+@since			v0.0
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+@method			addStmaEsriFeatureLayer
+@description	fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) des Stadtmessungsamtes hinzu.
+				Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
+				10:	gecacht
+				20: gecacht - Kartendienst des Stadtmessungsamtes
+				40: dynamisch
+				50: dynamisch - Kartendienst des Stadtmessungsamtes
+				
+				Beispiel:
+				mymap.addStmaEsriFeatureLayer("1_Base/Stadtkarte_Internet_c");
+
+@argument		_mapservice {String} Bezeichnung des Kartendienstes
+				Wenn die URL des Kartendienstes beispielsweise https://SERVER/ArcGIS/rest/services/ORDNER/KARTENDIENST/MapServer heißt,
+				so sollte ORDNER/KARTENDIENST angegeben werden.
+
+@argument		_layerId {Integer} LayerId im Kartendienst
+				Wenn die URL des Kartendienstes beispielsweise https://SERVER/ArcGIS/rest/services/ORDNER/KARTENDIENST/MapServer/LAYERID heißt,
+				so sollte LAYERID angegeben werden.
+
+@argument		_styleFunction {function}
+				Funktion, wie die Objekte aussehen sollen. Der Funktion wird als 1. Parameter das feature-Objekt (ol.Feature) übergeben.
+				Mit Hilfe von z.B. feature.get('activeprod') könnte dann der Inhalt des Attributes 'activeprod' abgerufen werden und in Abhängigkeit
+				von ihm unterschiedliche Stile angegeben werden.
+				Rückgabe der Funktion muss ein ol.style.Style-Objekt sein.
+				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.style.Style.html
+
+@returns		{null} -
+
+@since			v0.86
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+@method			getMap
+@description	gibt das OpenLayer-Map-Objekt zurück.
+				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.Map.html
+
+@returns		{object} ol.Map
+				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.Map.html
+
+@since			v0.0
+----------------------------------------------------------------------------------------------
