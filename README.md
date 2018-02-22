@@ -2,10 +2,20 @@
 Dokumentation und Beispiele für geoline.ol.js - Eine API auf Basis von OpenLayers zur einfachen
 Einbindung der Kartendienste der Stadtmessungsamtes Stuttgart.
 
+##URLs
+*[GitHub](https://github.com/stadtmessungsamt-stuttgart/geoline.ol.js)
+*[npm](https://www.npmjs.com/package/@stadtmessungsamt-stuttgart/geoline.ol.js)
+
 ## Was ist inbegriffen?
 
 * Dokumentation
 * Beispiele
+
+## Installation
+Um die API zu nutzen, können Sie das Paket installieren:
+    ```
+    npm install @stadtmessungsamt-stuttgart/geoline.ol.js
+    ```
 
 ## Lizenz API
 Copyright © Stadtmessungsamt, LHS Stuttgart
