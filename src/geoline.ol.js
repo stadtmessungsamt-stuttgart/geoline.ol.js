@@ -100,6 +100,16 @@ function stma_openlayers() {
 						}
 					}
 					
+					//AGS Kartendienst von Esri?
+					if (url.hostname.indexOf("arcgisonline.com")>-1 || url.hostname.indexOf("arcgis.com")>-1) {
+						//Der Copyright-Vermerk muss immer sichtbar sein
+						var _attributionControl = $.grep(map.getControls().getArray(), function(_control, i) {
+							return ol.control.Attribution.prototype.isPrototypeOf(_control);
+						})[0];
+						_attributionControl.setCollapsible(false);
+						_attributionControl.setCollapsed(false);
+					}
+					
 					//spatialReference korrigieren für 10.0
 					if (ags_info.currentVersion == 10.05 && ags_info.spatialReference.latestWkid == null) {
 						switch (ags_info.spatialReference.wkid) {
@@ -372,7 +382,13 @@ function stma_openlayers() {
 		
 		//Karte initialisieren
 		var mapParams = {
-			target: "map"
+			target: "map",
+			controls: ol.control.defaults({
+				attribution: true,
+				attributionOptions: {
+					tipLabel: "Copyright"
+				}
+			})
 		};
 	  
 		//diese Parameter können nicht überdefiniert werden.
@@ -381,15 +397,26 @@ function stma_openlayers() {
 			logo: false,
 			pixelRatio: 1, //wichtige Einstellung für unsere Kartendienste!
 			loadTilesWhileAnimating: true, //Kacheln während des Zoomens nachladen
-			loadTilesWhileInteracting: true, //Kacheln während des Panens nachladen
-			controls: ol.control.defaults({
-				attribution: true,
-				attributionOptions: {
-					tipLabel: "Copyright"
-				}
-			})
+			loadTilesWhileInteracting: true //Kacheln während des Panens nachladen
 		};
 		$.extend(true, mapParams, _mapParams, predefinedMapParams);
+		
+		//Sicherstellen, dass der Attribution-Control vorhanden ist.
+		//Dieser muss vorhanden sein, wenn Karten von ESRI genutzt werden.
+		if (mapParams.controls != null) {
+			var _attributionControlAvailable = false;
+			mapParams.controls.forEach(function(_control, i) {
+				if (ol.control.Attribution.prototype.isPrototypeOf(_control)) {
+					_attributionControlAvailable = true;
+				}
+			});
+			if (_attributionControlAvailable == false) {
+				//Attribution-Control hinzufügen
+				mapParams.controls.push(new ol.control.Attribution({
+					tipLabel: "Copyright"
+				}));
+			}
+		}
 		
 		//View definieren
 		viewParams = $.extend(true,
