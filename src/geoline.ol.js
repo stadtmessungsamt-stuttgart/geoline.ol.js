@@ -332,6 +332,10 @@ function stma_openlayers() {
 	 *						Beispiel: { tileLoadFunction: function(imageTile, src) { imageTile.getImage().src = src;}}
 	 *						Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.XYZ.html
 	 *
+	 *					-config: Hier kann das Konfigurationsobjekt, das normalerweise direkt vom Server des Stadtmessungsamtes geladen wird überschrieben werden.
+	 *						Diese Funktion sollte nur sparsam genutzt werden, zum Beispiel für die Offlineverfügbarkeit in Apps.
+	 *						Wird diese Funktion verwendet, so muss sichergestellt werden, dass die übergebene Konfiguration aktuell ist.
+	 *
 	 *	@returns		{null} -
 	 *
 	 *	@since			v0.0
@@ -360,6 +364,10 @@ function stma_openlayers() {
 		//zusätzliche Parameter für geoline.ol.js hinzufügen
 		if (_customParams != null && _customParams.tileLoadFunction != null) {
 			tileLoadFunction = _customParams.tileLoadFunction;
+		}
+		if (_customParams != null && _customParams.config != null) {
+			console.warn("Konfiguration wurde manuell gesetzt und wird nicht vom Server des Stadtmessungamtes geladen. Bitte stellen Sie sicher, dass die Konfiguration immer aktuell ist.");
+			config = _customParams.config;
 		}
 		
 		//Karte initialisieren
@@ -687,5 +695,18 @@ function stma_openlayers() {
 	 */
 	this.getMap = function() {
 		return map;
+	}
+	
+	/**
+	 *	@method			getConfig
+	 *	@description	gibt die interne Konfiguration von geoline.ol.js zurück.
+	 *					Diese Funktion sollte nur sparsam genutzt werden, zum Beispiel zum Ermitteln der Konfiguration für die Offlineverfügbarkeit in Apps.
+	 *
+	 *	@returns		{object}
+	 *
+	 *	@since			v1.0
+	 */
+	this.getConfig = function() {
+		return _getConfig();
 	}
 }
