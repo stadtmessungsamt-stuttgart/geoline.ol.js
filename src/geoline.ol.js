@@ -20,6 +20,8 @@ function stma_openlayers() {
 	var viewParams = null;
 	
 	var config = null;
+	
+	var tileLoadFunction = null;
 
 	//	@description	holt die Konfiguration in Abhängigkeit des EPSG-Codes von unserem Internetserver ab.
 	//
@@ -198,6 +200,9 @@ function stma_openlayers() {
 			})],
 			url: _url + '/tile/{z}/{y}/{x}'
 		};
+		if (tileLoadFunction != null) {
+			predefinedSourceParams.tileLoadFunction = tileLoadFunction;
+		}
 		$.extend(true, sourceParams, _sourceParams, predefinedSourceParams);
 		
 		var _zIndex = 10;
@@ -320,11 +325,18 @@ function stma_openlayers() {
 	 *					zusätzliche Parameter für das OpenLayer-View-Objekt
 	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.View.html
 	 *
+	 *	@argument		_customParams {object}
+	 *					zusätzliche Parameter für geoline.ol.js
+	 *					Unterstützte Parameter:
+	 *					-tileLoadFunction: Optionale Funktion, die bei gecachten Kartendiensten ausgeführt wird, um eine Kachel zu laden.
+	 *						Beispiel: { tileLoadFunction: function(imageTile, src) { imageTile.getImage().src = src;}}
+	 *						Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.XYZ.html
+	 *
 	 *	@returns		{null} -
 	 *
 	 *	@since			v0.0
 	 */
-	this.initMap = function(_epsgCode, _mapParams, _viewParams) {
+	this.initMap = function(_epsgCode, _mapParams, _viewParams, _customParams) {
 		var _self = this;
 		
 		//(25832)UTM-Projektion zu den Projektionen von OpenLayers hinzufügen
@@ -343,6 +355,11 @@ function stma_openlayers() {
 		projection = "EPSG:" + _epsgCode;
 		if (ol.proj.get(projection) == null) {
 			console.error("Projektion " + projection + " nicht gefunden. Es kann zu falscher Darstellung der Karte kommen");
+		}
+		
+		//zusätzliche Parameter für geoline.ol.js hinzufügen
+		if (_customParams != null && _customParams.tileLoadFunction != null) {
+			tileLoadFunction = _customParams.tileLoadFunction;
 		}
 		
 		//Karte initialisieren
