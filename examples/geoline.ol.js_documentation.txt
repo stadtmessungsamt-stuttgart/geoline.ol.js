@@ -1,5 +1,5 @@
 ----------------------------------------------------------------------------------------------
-version			0.9 (#0.9, 30.01.2018 16:08:45)
+version			1.0 (18.07.2018 13:51:02)
 ----------------------------------------------------------------------------------------------
 @method			stma_openlayers
 @description	Momentan ist OpenLayers 4.5.0 eingebunden.
@@ -25,6 +25,17 @@ version			0.9 (#0.9, 30.01.2018 16:08:45)
 @argument		_viewParams {object}
 				zusätzliche Parameter für das OpenLayer-View-Objekt
 				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.View.html
+
+@argument		_customParams {object}
+				zusätzliche Parameter für geoline.ol.js
+				Unterstützte Parameter:
+				-tileLoadFunction: Optionale Funktion, die bei gecachten Kartendiensten ausgeführt wird, um eine Kachel zu laden.
+					Beispiel: { tileLoadFunction: function(imageTile, src) { imageTile.getImage().src = src;}}
+					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.XYZ.html
+
+				-config: Hier kann das Konfigurationsobjekt, das normalerweise direkt vom Server des Stadtmessungsamtes geladen wird überschrieben werden.
+					Diese Funktion sollte nur sparsam genutzt werden, zum Beispiel für die Offlineverfügbarkeit in Apps.
+					Wird diese Funktion verwendet, so muss sichergestellt werden, dass die übergebene Konfiguration aktuell ist.
 
 @returns		{null} -
 
@@ -53,6 +64,10 @@ version			0.9 (#0.9, 30.01.2018 16:08:45)
 				zusätzliche Parameter für das OpenLayer-Source-Objekt
 				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
 
+@argument		_callbackFunction {function}
+				Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+				Der Funktion wird das jeweilige Layerobjekt übergeben.
+
 @returns		{null} -
 
 @since			v0.0
@@ -80,6 +95,10 @@ version			0.9 (#0.9, 30.01.2018 16:08:45)
 @argument		_sourceParams {object}
 				zusätzliche Parameter für das OpenLayer-Source-Objekt
 				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
+
+@argument		_callbackFunction {function}
+				Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+				Der Funktion wird das jeweilige Layerobjekt übergeben.
 
 @returns		{null} -
 
@@ -111,6 +130,10 @@ version			0.9 (#0.9, 30.01.2018 16:08:45)
 				zusätzliche Parameter für das OpenLayer-Source-Objekt
 				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
 
+@argument		_callbackFunction {function}
+				Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+				Der Funktion wird das jeweilige Layerobjekt übergeben.
+
 @returns		{null} -
 
 @since			v0.0
@@ -127,6 +150,10 @@ version			0.9 (#0.9, 30.01.2018 16:08:45)
 				[ [x,y], [x,y], ... ]
 
 @argument		_imageURL {String} URL zu dem Bild des Punktes / Data-URL des Bildes
+
+@argument		_callbackFunction {function}
+				Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+				Der Funktion wird das jeweilige Layerobjekt übergeben.
 
 @returns		{null} -
 
@@ -159,6 +186,10 @@ version			0.9 (#0.9, 30.01.2018 16:08:45)
 				Rückgabe der Funktion muss ein ol.style.Style-Objekt sein.
 				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.style.Style.html
 
+@argument		_callbackFunction {function}
+				Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+				Der Funktion wird das jeweilige Layerobjekt übergeben.
+
 @returns		{null} -
 
 @since			v0.86
@@ -172,4 +203,13 @@ version			0.9 (#0.9, 30.01.2018 16:08:45)
 				Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.Map.html
 
 @since			v0.0
+----------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
+@method			getConfig
+@description	gibt die interne Konfiguration von geoline.ol.js zurück.
+				Diese Funktion sollte nur sparsam genutzt werden, zum Beispiel zum Ermitteln der Konfiguration für die Offlineverfügbarkeit in Apps.
+
+@returns		{object}
+
+@since			v1.0
 ----------------------------------------------------------------------------------------------
