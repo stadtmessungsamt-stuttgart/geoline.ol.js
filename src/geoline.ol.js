@@ -67,8 +67,12 @@ function stma_openlayers() {
 	//					zusätzliche Parameter für das OpenLayer-Source-Objekt
 	//					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
 	//
+	//	@argument		_callbackFunction {function}
+	//					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+	//					Der Funktion wird das jeweilige Layerobjekt übergeben.
+	//
 	//	@since			v0.0
-	var _addEsriLayer = function(_url, _layerParams, _sourceParams) {
+	var _addEsriLayer = function(_url, _layerParams, _sourceParams, _callbackFunction) {
 		var _self = this;
 		
 		//Infos zu dem AGS Kartendienst ermitteln
@@ -111,10 +115,10 @@ function stma_openlayers() {
 					//Ist es ein gecachter Dienst?
 					if (ags_info.singleFusedMapCache == true) {
 						//-> gecachter Dienst hinzufügen
-						_initCachedLayer(_url, _layerParams, _sourceParams, ags_info);
+						_initCachedLayer(_url, _layerParams, _sourceParams, ags_info, _callbackFunction);
 					} else {
 						//-> dynamischer Dienst hinzufügen
-						_initDynamicLayer(_url, _layerParams, _sourceParams, ags_info);
+						_initDynamicLayer(_url, _layerParams, _sourceParams, ags_info, _callbackFunction);
 					}
 					
 				} catch (e) {
@@ -143,8 +147,12 @@ function stma_openlayers() {
 	//	@argument		ags_info {object}
 	//					JSON-Objekt mit den Karteneigenschaften (von ../MapServer?f=json)
 	//
+	//	@argument		_callbackFunction {function}
+	//					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+	//					Der Funktion wird das jeweilige Layerobjekt übergeben.
+	//
 	//	@since			v0.0
-	var _initCachedLayer = function (_url, _layerParams, _sourceParams, ags_info) {
+	var _initCachedLayer = function (_url, _layerParams, _sourceParams, ags_info, _callbackFunction) {
 		var _self = this;
 		
 		var resolutions = [];
@@ -214,6 +222,11 @@ function stma_openlayers() {
 		
 		//Layer hinzufügen
 		map.addLayer(layer);
+		
+		//Callbackfunktion ausführen
+		if (typeof _callbackFunction == "function") {
+			_callbackFunction(layer);
+		}
 	}
 
 	//	@description	fügt einen EsriLayer hinzu. (dynamisch)
@@ -232,8 +245,12 @@ function stma_openlayers() {
 	//	@argument		ags_info {object}
 	//					JSON-Objekt mit den Karteneigenschaften (von ../MapServer?f=json)
 	//
+	//	@argument		_callbackFunction {function}
+	//					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+	//					Der Funktion wird das jeweilige Layerobjekt übergeben.
+	//
 	//	@since			v0.0
-	var _initDynamicLayer = function (_url, _layerParams, _sourceParams, ags_info) {
+	var _initDynamicLayer = function (_url, _layerParams, _sourceParams, ags_info, _callbackFunction) {
 		var _self = this;
 		
 		//sourceParams
@@ -273,6 +290,11 @@ function stma_openlayers() {
 		var layer = new ol.layer.Image(layerParams);
 		//Layer hinzufügen
 		map.addLayer(layer);
+		
+		//Callbackfunktion ausführen
+		if (typeof _callbackFunction == "function") {
+			_callbackFunction(layer);
+		}
 	}
 	
 	// ----------------------------------------------------------------------------------
@@ -389,18 +411,22 @@ function stma_openlayers() {
 	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt
 	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
 	 *
+	 *	@argument		_callbackFunction {function}
+	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+	 *					Der Funktion wird das jeweilige Layerobjekt übergeben.
+	 *
 	 *	@returns		{null} -
 	 *
 	 *	@since			v0.0
 	 */
-	this.addEsriLayer = function(_url, _layerParams, _sourceParams) {
+	this.addEsriLayer = function(_url, _layerParams, _sourceParams, _callbackFunction) {
 		var _self = this;
 		
 		var url = new URL(_url);
 		if (jQuery.inArray(url.hostname, _getConfig().ags_hosts) > -1) {
 			console.error("Kartendienste des Stadtmessungsamtes über die Methode addStmaEsriLayer hinzufügen");
 		} else {
-			_addEsriLayer(_url, _layerParams, _sourceParams);
+			_addEsriLayer(_url, _layerParams, _sourceParams, _callbackFunction);
 		}
 	}
 	
@@ -428,14 +454,18 @@ function stma_openlayers() {
 	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt
 	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
 	 *
+	 *	@argument		_callbackFunction {function}
+	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+	 *					Der Funktion wird das jeweilige Layerobjekt übergeben.
+	 *
 	 *	@returns		{null} -
 	 *
 	 *	@since			v0.0
 	 */
-	this.addStmaEsriLayer = function(_mapservice, _layerParams, _sourceParams) {
+	this.addStmaEsriLayer = function(_mapservice, _layerParams, _sourceParams, _callbackFunction) {
 		var _self = this;
 		
-		_addEsriLayer("https://" + _getConfig().ags_host + "/" + _getConfig().ags_instance + "/rest/services/" + _mapservice + "/MapServer", _layerParams, _sourceParams);
+		_addEsriLayer("https://" + _getConfig().ags_host + "/" + _getConfig().ags_instance + "/rest/services/" + _mapservice + "/MapServer", _layerParams, _sourceParams, _callbackFunction);
 	}
 	
 	/**
@@ -464,15 +494,19 @@ function stma_openlayers() {
 	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt
 	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
 	 *
+	 *	@argument		_callbackFunction {function}
+	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+	 *					Der Funktion wird das jeweilige Layerobjekt übergeben.
+	 *
 	 *	@returns		{null} -
 	 *
 	 *	@since			v0.0
 	 */
-	this.addStmaBaseLayer = function(_mapname, _layerParams, _sourceParams) {
+	this.addStmaBaseLayer = function(_mapname, _layerParams, _sourceParams, _callbackFunction) {
 		var _self = this;
 		
 		if (_getConfig().ags_services[_mapname] != null) {
-			_addEsriLayer("https://" + _getConfig().ags_services[_mapname].ags_host + "/" + _getConfig().ags_services[_mapname].ags_instance + "/rest/services/" + _getConfig().ags_services[_mapname].ags_service + "/MapServer", _layerParams, _sourceParams);
+			_addEsriLayer("https://" + _getConfig().ags_services[_mapname].ags_host + "/" + _getConfig().ags_services[_mapname].ags_instance + "/rest/services/" + _getConfig().ags_services[_mapname].ags_service + "/MapServer", _layerParams, _sourceParams, _callbackFunction);
 		} else {
 			console.error("Karte '" + _mapname + "' nicht gefunden");
 		}
@@ -491,11 +525,15 @@ function stma_openlayers() {
 	 *
 	 *	@argument		_imageURL {String} URL zu dem Bild des Punktes / Data-URL des Bildes
 	 *
+	 *	@argument		_callbackFunction {function}
+	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+	 *					Der Funktion wird das jeweilige Layerobjekt übergeben.
+	 *
 	 *	@returns		{null} -
 	 *
 	 *	@since			v0.0
 	 */
-	this.addPoints = function(_pointCoords, _imageURL) {
+	this.addPoints = function(_pointCoords, _imageURL, _callbackFunction) {
 		
 		var features = [];
 		for (var i=0; i < _pointCoords.length; i++) {
@@ -517,6 +555,11 @@ function stma_openlayers() {
 			})
 		});
 		map.addLayer(vectorLayer);
+		
+		//Callbackfunktion ausführen
+		if (typeof _callbackFunction == "function") {
+			_callbackFunction(vectorLayer);
+		}
 	}
 	
 	/**
@@ -546,11 +589,15 @@ function stma_openlayers() {
 	 *					Rückgabe der Funktion muss ein ol.style.Style-Objekt sein.
 	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.style.Style.html
 	 *
+	 *	@argument		_callbackFunction {function}
+	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+	 *					Der Funktion wird das jeweilige Layerobjekt übergeben.
+	 *
 	 *	@returns		{null} -
 	 *
 	 *	@since			v0.86
 	 */
-	this.addStmaEsriFeatureLayer = function(_mapservice, _layerId, _styleFunction) {
+	this.addStmaEsriFeatureLayer = function(_mapservice, _layerId, _styleFunction, _callbackFunction) {
 		var _self = this;
 		
 		var _epsgCode = projection.replace("EPSG:", "");
@@ -604,6 +651,11 @@ function stma_openlayers() {
 		});
 		
 		map.addLayer(vectorLayer);
+		
+		//Callbackfunktion ausführen
+		if (typeof _callbackFunction == "function") {
+			_callbackFunction(vectorLayer);
+		}
 	}
 	
 	/**
