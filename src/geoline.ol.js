@@ -4,7 +4,7 @@
 
 /**
  *	@method			stma_openlayers
- *	@description	Momentan ist OpenLayers 4.5.0 eingebunden.
+ *	@description	Momentan ist OpenLayers 6.3.1 eingebunden.
  *
  *	@returns		{null} -
  *
@@ -63,11 +63,11 @@ function stma_openlayers() {
 	//
 	//	@argument		_layerParams {object}
 	//					zusätzliche Parameter für das OpenLayer-Layer-Objekt
-	//					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.layer.html
+	//					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html
 	//
 	//	@argument		_sourceParams {object}
 	//					zusätzliche Parameter für das OpenLayer-Source-Objekt
-	//					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
+	//					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html
 	//
 	//	@argument		_callbackFunction {function}
 	//					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
@@ -150,11 +150,11 @@ function stma_openlayers() {
 	//
 	//	@argument		_layerParams {object}
 	//					zusätzliche Parameter für das OpenLayer-Layer-Objekt
-	//					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.layer.html
+	//					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html
 	//
 	//	@argument		_sourceParams {object}
 	//					zusätzliche Parameter für das OpenLayer-Source-Objekt
-	//					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
+	//					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html
 	//
 	//	@argument		ags_info {object}
 	//					JSON-Objekt mit den Karteneigenschaften (von ../MapServer?f=json)
@@ -205,11 +205,10 @@ function stma_openlayers() {
 		var predefinedSourceParams = {
 			tileGrid: tileGrid,
 			projection: ol.proj.get("EPSG:" + projection),
-			attributions: [new ol.Attribution({
-				html: ags_info.copyrightText
-			})],
+			attributions: ags_info.copyrightText,
 			url: _url + '/tile/{z}/{y}/{x}'
 		};
+		
 		if (tileLoadFunction != null) {
 			predefinedSourceParams.tileLoadFunction = tileLoadFunction;
 		}
@@ -251,11 +250,11 @@ function stma_openlayers() {
 	//
 	//	@argument		_layerParams {object}
 	//					zusätzliche Parameter für das OpenLayer-Layer-Objekt
-	//					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.layer.html
+	//					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html
 	//
 	//	@argument		_sourceParams {object}
 	//					zusätzliche Parameter für das OpenLayer-Source-Objekt
-	//					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
+	//					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html
 	//
 	//	@argument		ags_info {object}
 	//					JSON-Objekt mit den Karteneigenschaften (von ../MapServer?f=json)
@@ -329,18 +328,18 @@ function stma_openlayers() {
 	 *					
 	 *	@argument		_mapParams {object}
 	 *					zusätzliche Parameter für das OpenLayer-Map-Objekt
-	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.Map.html
+	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_Map-Map.html
 	 *
 	 *	@argument		_viewParams {object}
 	 *					zusätzliche Parameter für das OpenLayer-View-Objekt
-	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.View.html
+	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_View-View.html
 	 *
 	 *	@argument		_customParams {object}
 	 *					zusätzliche Parameter für geoline.ol.js
 	 *					Unterstützte Parameter:
 	 *					-tileLoadFunction: Optionale Funktion, die bei gecachten Kartendiensten ausgeführt wird, um eine Kachel zu laden.
 	 *						Beispiel: { tileLoadFunction: function(imageTile, src) { imageTile.getImage().src = src;}}
-	 *						Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.XYZ.html
+	 *						Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_XYZ-XYZ.html
 	 *
 	 *					-config: Hier kann das Konfigurationsobjekt, das normalerweise direkt vom Server des Stadtmessungsamtes geladen wird überschrieben werden.
 	 *						Diese Funktion sollte nur sparsam genutzt werden, zum Beispiel für die Offlineverfügbarkeit in Apps.
@@ -438,6 +437,9 @@ function stma_openlayers() {
 		$(".ol-viewport").on("contextmenu", function(e) {
 			e.preventDefault();
 		});
+		
+		//Nach dem Start die Größe der Karte automatisch bestimmen
+		map.updateSize();
 	}
 	
 	/**
@@ -457,11 +459,11 @@ function stma_openlayers() {
 	 *
 	 *	@argument		_layerParams {object}
 	 *					zusätzliche Parameter für das OpenLayer-Layer-Objekt
-	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.layer.html
+	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html
 	 *
 	 *	@argument		_sourceParams {object}
 	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt
-	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
+	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html
 	 *
 	 *	@argument		_callbackFunction {function}
 	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
@@ -500,11 +502,11 @@ function stma_openlayers() {
 	 *
 	 *	@argument		_layerParams {object}
 	 *					zusätzliche Parameter für das OpenLayer-Layer-Objekt
-	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.layer.html
+	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html
 	 *
 	 *	@argument		_sourceParams {object}
 	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt
-	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
+	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html
 	 *
 	 *	@argument		_callbackFunction {function}
 	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
@@ -540,11 +542,11 @@ function stma_openlayers() {
 	 *
 	 *	@argument		_layerParams {object}
 	 *					zusätzliche Parameter für das OpenLayer-Layer-Objekt
-	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.layer.html
+	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html
 	 *
 	 *	@argument		_sourceParams {object}
 	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt
-	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.source.html
+	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html
 	 *
 	 *	@argument		_callbackFunction {function}
 	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
@@ -639,7 +641,7 @@ function stma_openlayers() {
 	 *					Mit Hilfe von z.B. feature.get('activeprod') könnte dann der Inhalt des Attributes 'activeprod' abgerufen werden und in Abhängigkeit
 	 *					von ihm unterschiedliche Stile angegeben werden.
 	 *					Rückgabe der Funktion muss ein ol.style.Style-Objekt sein.
-	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.style.Style.html
+	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_style_Style-Style.html
 	 *
 	 *	@argument		_callbackFunction {function}
 	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
@@ -713,10 +715,10 @@ function stma_openlayers() {
 	/**
 	 *	@method			getMap
 	 *	@description	gibt das OpenLayer-Map-Objekt zurück.
-	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.Map.html
+	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_Map-Map.html
 	 *
 	 *	@returns		{object} ol.Map
-	 *					Siehe https://openlayers.org/en/v4.5.0/apidoc/ol.Map.html
+	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_Map-Map.html
 	 *
 	 *	@since			v0.0
 	 */

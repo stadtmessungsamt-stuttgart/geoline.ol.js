@@ -1,12 +1,12 @@
 {
   "name": "@stadtmessungsamt-stuttgart/geoline.ol.js",
-  "version": @version@",
+  "version": "1.1.0",
   "description": "Bibliothek zur einfachen Einbindung von Kartendiensten des Stadtmessungsamtes Stuttgart in OpenLayers",
   "author": "Stadtmessungsamt, LHS Stuttgart",
   "main": "dist/geoline.ol.min.js",
   "style": "dist/geoline.ol.min.css",
   "dependencies": {
-    "openlayers": "^4.5.0",
+    "ol": "^6.3.1",
     "jquery": ">=1.9.0"
   },
   "repository": {
