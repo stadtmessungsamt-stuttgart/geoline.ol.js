@@ -1,4 +1,8 @@
 /**
+ @module stma_openlayers
+*/
+
+/**
  *	version			@version@
 */
 
@@ -10,8 +14,13 @@
  *
  *	@since			v0.0
  */
-function stma_openlayers() {
-
+var stma_openlayers = /** @class */ (function () {
+	
+	function stma_openlayers(options) {
+		var _this = this;
+		return _this;
+	}
+	
 	// ----------------------------------------------------------------------------------
 	// Intern
 	// ----------------------------------------------------------------------------------
@@ -349,7 +358,7 @@ function stma_openlayers() {
 	 *
 	 *	@since			v0.0
 	 */
-	this.initMap = function(_epsgCode, _mapParams, _viewParams, _customParams) {
+	stma_openlayers.prototype.initMap = function(_epsgCode, _mapParams, _viewParams, _customParams) {
 		var _self = this;
 		
 		//(25832)UTM-Projektion zu den Projektionen von OpenLayers hinzufügen
@@ -473,7 +482,7 @@ function stma_openlayers() {
 	 *
 	 *	@since			v0.0
 	 */
-	this.addEsriLayer = function(_url, _layerParams, _sourceParams, _callbackFunction) {
+	stma_openlayers.prototype.addEsriLayer = function(_url, _layerParams, _sourceParams, _callbackFunction) {
 		var _self = this;
 		
 		var url = new URL(_url);
@@ -516,7 +525,7 @@ function stma_openlayers() {
 	 *
 	 *	@since			v0.0
 	 */
-	this.addStmaEsriLayer = function(_mapservice, _layerParams, _sourceParams, _callbackFunction) {
+	stma_openlayers.prototype.addStmaEsriLayer = function(_mapservice, _layerParams, _sourceParams, _callbackFunction) {
 		var _self = this;
 		
 		_addEsriLayer("https://" + _getConfig().ags_host + "/" + _getConfig().ags_instance + "/rest/services/" + _mapservice + "/MapServer", _layerParams, _sourceParams, _callbackFunction);
@@ -556,7 +565,7 @@ function stma_openlayers() {
 	 *
 	 *	@since			v0.0
 	 */
-	this.addStmaBaseLayer = function(_mapname, _layerParams, _sourceParams, _callbackFunction) {
+	stma_openlayers.prototype.addStmaBaseLayer = function(_mapname, _layerParams, _sourceParams, _callbackFunction) {
 		var _self = this;
 		
 		if (_getConfig().ags_services[_mapname] != null) {
@@ -587,7 +596,7 @@ function stma_openlayers() {
 	 *
 	 *	@since			v0.0
 	 */
-	this.addPoints = function(_pointCoords, _imageURL, _callbackFunction) {
+	stma_openlayers.prototype.addPoints = function(_pointCoords, _imageURL, _callbackFunction) {
 		
 		var features = [];
 		for (var i=0; i < _pointCoords.length; i++) {
@@ -651,7 +660,7 @@ function stma_openlayers() {
 	 *
 	 *	@since			v0.86
 	 */
-	this.addStmaEsriFeatureLayer = function(_mapservice, _layerId, _styleFunction, _callbackFunction) {
+	stma_openlayers.prototype.addStmaEsriFeatureLayer = function(_mapservice, _layerId, _styleFunction, _callbackFunction) {
 		var _self = this;
 		
 		var _epsgCode = projection.replace("EPSG:", "");
@@ -722,7 +731,7 @@ function stma_openlayers() {
 	 *
 	 *	@since			v0.0
 	 */
-	this.getMap = function() {
+	stma_openlayers.prototype.getMap = function() {
 		return map;
 	}
 	
@@ -735,7 +744,10 @@ function stma_openlayers() {
 	 *
 	 *	@since			v1.0
 	 */
-	this.getConfig = function() {
+	stma_openlayers.prototype.getConfig = function() {
 		return _getConfig();
 	}
-}
+	
+	return stma_openlayers;
+}());
+export default stma_openlayers;
