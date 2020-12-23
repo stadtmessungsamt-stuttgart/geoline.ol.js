@@ -2,6 +2,29 @@
  @module stma_openlayers
 */
 
+import jquery from "jquery";
+window.$ = window.jQuery = jquery;
+
+import Feature from "ol/Feature";
+import Map from "ol/Map";
+import TileGrid from "ol/tilegrid/TileGrid";
+import View from "ol/View";
+import controlAttribution from "ol/control/Attribution";
+import formatEsriJSON from "ol/format/EsriJSON";
+import geomPoint from "ol/geom/Point";
+import layerImage from "ol/layer/Image";
+import layerTile from "ol/layer/Tile";
+import layerVector from "ol/layer/Vector";
+import sourceImageArcGISRest from "ol/source/ImageArcGISRest";
+import sourceVector from "ol/source/Vector";
+import sourceXYZ from "ol/source/XYZ";
+import styleIcon from "ol/style/Icon";
+import styleStyle from "ol/style/Style";
+import {defaults as defaultControls} from 'ol/control';
+import proj4 from "proj4";
+import {get as getProjection} from "ol/proj";
+import {register} from 'ol/proj/proj4';
+
 /**
  *	version			@version@
 */
@@ -113,7 +136,7 @@ var stma_openlayers = /** @class */ (function () {
 					if (url.hostname.indexOf("arcgisonline.com")>-1 || url.hostname.indexOf("arcgis.com")>-1) {
 						//Der Copyright-Vermerk muss immer sichtbar sein
 						var _attributionControl = $.grep(map.getControls().getArray(), function(_control, i) {
-							return ol.control.Attribution.prototype.isPrototypeOf(_control);
+							return controlAttribution.prototype.isPrototypeOf(_control);
 						})[0];
 						_attributionControl.setCollapsible(false);
 						_attributionControl.setCollapsed(false);
@@ -188,12 +211,12 @@ var stma_openlayers = /** @class */ (function () {
 			resolutions: resolutions,
 			tileSize: [ags_info.tileInfo.rows, ags_info.tileInfo.cols]
 		};
-		var tileGrid = new ol.tilegrid.TileGrid(params);
+		var tileGrid = new TileGrid(params);
 		
 		//View konfigurieren, falls diese noch nicht konfiguriert wurde
 		if (map.getView().getProjection().getCode() != projection) {
-			$.extend(true, viewParams, { resolutions: resolutions} );
-			map.setView(new ol.View(viewParams));
+			$.extend(true, viewParams, { resolutions: resolutions, constrainResolution: true} );
+			map.setView(new View(viewParams));
 		}
 		
 		//Projektion ermitteln
@@ -213,7 +236,7 @@ var stma_openlayers = /** @class */ (function () {
 		//diese Parameter können nicht überdefiniert werden.
 		var predefinedSourceParams = {
 			tileGrid: tileGrid,
-			projection: ol.proj.get("EPSG:" + projection),
+			projection: getProjection("EPSG:" + projection),
 			attributions: ags_info.copyrightText,
 			url: _url + '/tile/{z}/{y}/{x}'
 		};
@@ -236,12 +259,12 @@ var stma_openlayers = /** @class */ (function () {
 	  
 		//diese Parameter können nicht überdefiniert werden.
 		var predefinedLayerParams = {
-			source: new ol.source.XYZ(sourceParams)
+			source: new sourceXYZ(sourceParams)
 		};
 		$.extend(true, layerParams, _layerParams, predefinedLayerParams);
 		
 		//gecachten Layer erstellen
-		var layer = new ol.layer.Tile(layerParams);
+		var layer = new layerTile(layerParams);
 		
 		//Layer hinzufügen
 		map.addLayer(layer);
@@ -285,9 +308,7 @@ var stma_openlayers = /** @class */ (function () {
 		var predefinedSourceParams = {
 			ratio: 1,
 			url: _url,
-			attributions: [new ol.Attribution({
-				html: ags_info.copyrightText
-			})]
+			attributions: [ags_info.copyrightText]
 		};
 		$.extend(true, sourceParams, _sourceParams, predefinedSourceParams);
 		
@@ -305,12 +326,12 @@ var stma_openlayers = /** @class */ (function () {
 	  
 		//diese Parameter können nicht überdefiniert werden.
 		var predefinedLayerParams = {
-			source: new ol.source.ImageArcGISRest(sourceParams)
+			source: new sourceImageArcGISRest(sourceParams)
 		};
 		$.extend(true, layerParams, _layerParams, predefinedLayerParams);
 		
 		//dynamischen Layer erstellen
-		var layer = new ol.layer.Image(layerParams);
+		var layer = new layerImage(layerParams);
 		//Layer hinzufügen
 		map.addLayer(layer);
 		
@@ -362,20 +383,16 @@ var stma_openlayers = /** @class */ (function () {
 		var _self = this;
 		
 		//(25832)UTM-Projektion zu den Projektionen von OpenLayers hinzufügen
-		ol.proj.addProjection(new ol.proj.Projection({
-			code: 'EPSG:25832',
-			units: 'm'
-		}));
+		proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
+		register(proj4);
 		
 		//(31467)GK-Projektion zu den Projektionen von OpenLayers hinzufügen
-		ol.proj.addProjection(new ol.proj.Projection({
-			code: 'EPSG:31467',
-			units: 'm'
-		}));
+		proj4.defs("EPSG:31467", "+proj=tmerc +lat_0=0 +lon_0=9 +k=1 +x_0=3500000 +y_0=0 +ellps=bessel +towgs84=598.1,73.7,418.2,0.202,0.045,-2.455,6.7 +units=m +no_defs");
+		register(proj4);
 	
 		//Projektion definieren
 		projection = "EPSG:" + _epsgCode;
-		if (ol.proj.get(projection) == null) {
+		if (getProjection(projection) == null) {
 			console.error("Projektion " + projection + " nicht gefunden. Es kann zu falscher Darstellung der Karte kommen");
 		}
 		
@@ -391,7 +408,7 @@ var stma_openlayers = /** @class */ (function () {
 		//Karte initialisieren
 		var mapParams = {
 			target: "map",
-			controls: ol.control.defaults({
+			controls: defaultControls({
 				attribution: true,
 				attributionOptions: {
 					tipLabel: "Copyright"
@@ -414,13 +431,13 @@ var stma_openlayers = /** @class */ (function () {
 		if (mapParams.controls != null) {
 			var _attributionControlAvailable = false;
 			mapParams.controls.forEach(function(_control, i) {
-				if (ol.control.Attribution.prototype.isPrototypeOf(_control)) {
+				if (controlAttribution.prototype.isPrototypeOf(_control)) {
 					_attributionControlAvailable = true;
 				}
 			});
 			if (_attributionControlAvailable == false) {
 				//Attribution-Control hinzufügen
-				mapParams.controls.push(new ol.control.Attribution({
+				mapParams.controls.push(new controlAttribution({
 					tipLabel: "Copyright"
 				}));
 			}
@@ -435,12 +452,12 @@ var stma_openlayers = /** @class */ (function () {
 			},
 			_viewParams,
 			{
-				projection: ol.proj.get(projection)
+				projection: getProjection(projection)
 			}
 		);
 		
 		//Karte definieren
-		map = new ol.Map(mapParams);
+		map = new Map(mapParams);
 		
 		//Rechtsklick auf der Karte unterbinden
 		$(".ol-viewport").on("contextmenu", function(e) {
@@ -600,18 +617,18 @@ var stma_openlayers = /** @class */ (function () {
 		
 		var features = [];
 		for (var i=0; i < _pointCoords.length; i++) {
-			features.push(new ol.Feature({
-				geometry: new ol.geom.Point(_pointCoords[i])
+			features.push(new Feature({
+				geometry: new geomPoint(_pointCoords[i])
 			}));
 		}
 
-		var vectorLayer = new ol.layer.Vector({
+		var vectorLayer = new layerVector({
 			zIndex: 60,
-			source: new ol.source.Vector({
+			source: new sourceVector({
 				features: features
 			}),
-			style: new ol.style.Style({
-				image: new ol.style.Icon({
+			style: new styleStyle({
+				image: new styleIcon({
 					anchor: [0.5, 1],
 					src: _imageURL
 				})
@@ -666,9 +683,9 @@ var stma_openlayers = /** @class */ (function () {
 		var _epsgCode = projection.replace("EPSG:", "");
 		console.warn("_epsgCode: " + _epsgCode);
 		
-		var _esrijsonFormat = new ol.format.EsriJSON();
+		var _esrijsonFormat = new formatEsriJSON();
 		
-		var vectorSource = new ol.source.Vector({
+		var vectorSource = new sourceVector({
 			loader: function(_extent, _resolution, _projection) {
 				var _url = "https://" + _getConfig().ags_host + "/" + _getConfig().ags_instance + "/rest/services/" + _mapservice + "/MapServer/" + _layerId + "/query/";
 				
@@ -707,7 +724,7 @@ var stma_openlayers = /** @class */ (function () {
 			}))
 		});
 
-		var vectorLayer = new ol.layer.Vector({
+		var vectorLayer = new layerVector({
 			zIndex: 60,
 			source: vectorSource,
 			style: _styleFunction

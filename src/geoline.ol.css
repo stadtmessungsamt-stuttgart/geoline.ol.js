@@ -1,14 +1,20 @@
+@import url("ol/ol.css");
+
 body {
 	font-family: sans-serif;
 }
 
-.ol-viewport button,
-.ol-viewport button:focus {
+.ol-control button {
 	cursor: pointer;
 	background-color: #eab811;
 }
 
-.ol-viewport button:hover {
+.ol-control button:focus {
+	cursor: pointer;
+	background-color: #eab811;
+}
+
+.ol-control button:hover {
 	background-color: #eab811;
 	color: #999999;
 	border: 1px solid #999999;
