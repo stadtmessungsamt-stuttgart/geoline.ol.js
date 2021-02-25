@@ -1,0 +1,9 @@
+{
+"type": "FeatureCollection",
+"name": "punkte_wgs84",
+"features": [
+{ "type": "Feature", "properties": { "fid": 1, "id": 1, "url": null, "label": null }, "geometry": { "type": "Point", "coordinates": [ 9.1084, 48.7847 ] } },
+{ "type": "Feature", "properties": { "fid": 2, "id": 2, "url": null, "label": "Lindenbach" }, "geometry": { "type": "Point", "coordinates": [ 9.11305, 48.79475 ] } },
+{ "type": "Feature", "properties": { "fid": 3, "id": 3, "url": null, "label": "Talgraben" }, "geometry": { "type": "Point", "coordinates": [ 9.10210, 48.78615 ] } }
+]
+}

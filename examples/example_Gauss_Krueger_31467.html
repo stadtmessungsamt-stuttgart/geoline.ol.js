@@ -7,16 +7,11 @@
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<meta name="robots" content="noindex,nofollow">
-		<title>geoline.ol.js - Web Mercator Auxiliary Sphere (EPSG:3857)</title>
+		<title>geoline.ol.js - Gauß-Krüger (EPSG:31467)</title>
 		
 		<!-- The line below is only needed for old environments like Internet Explorer and Android 4.x -->
 		<script src="https://cdn.polyfill.io/v2/polyfill.min.js?features=requestAnimationFrame,Element.prototype.classList,URL"></script>
-		<script src="js/jquery.min.js"></script>
-		<script src="js/ol.js"></script>
-		<script src="../dist/geoline.ol.min.js"></script>
-		
-		<link rel="stylesheet" href="css/ol.css">
-		<link rel="stylesheet" href="../dist/geoline.ol.min.css">
+		<script src="example_Gauss_Krueger_31467.js"></script>
 		
 		<style>
 			html {
@@ -33,20 +28,6 @@
 				height: 100%;
 			}
 		</style>
-		
-		<script>
-			var mymap;
-			$(function() {
-				mymap = new stma_openlayers();
-				mymap.initMap(3857, {}, {
-					center: [1031492, 6220413],
-					zoom: 10
-				});
-				
-				mymap.addStmaBaseLayer("Grundkarte");
-				mymap.addEsriLayer("https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer");
-			});
-		</script>
 	</head>
 	<body>
 		<div id="map" class="map"></div>
