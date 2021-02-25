@@ -28,3 +28,55 @@ body {
 .ol-attribution ul {
     font-size: 10px;
 }
+
+/* Overlay */
+#geoline_ol_js_popup {
+    background-color: #fff;
+    border-radius: .2rem;
+	border: 1px solid #D1D1D1;
+}
+
+#geoline_ol_js_popup > div {
+    padding: 5px;
+}
+
+#geoline_ol_js_popup .header {
+    border-bottom: unset;
+    box-sizing: border-box;
+    border-top-right-radius: .2rem;
+    border-top-left-radius: .2rem;
+    background-color: #f7f7f7;
+    border-bottom: 1px solid #D1D1D1;
+}
+
+#geoline_ol_js_popup .arrow {
+    bottom: calc(-.5rem - 1px);
+    position: absolute;
+    padding: unset;
+    left: calc(100% / 2 - 0.5rem);
+    width: 1rem;
+    height: 0.5rem;
+}
+
+#geoline_ol_js_popup .arrow::after,
+#geoline_ol_js_popup .arrow::before {
+    position: absolute;
+    display: block;
+    content: "";
+    box-sizing: border-box;
+    border-color: transparent;
+    border-top-color: transparent;
+    border-style: solid;
+}
+
+#geoline_ol_js_popup .arrow::after {
+    bottom: 1px;
+    border-width: .5rem .5rem 0;
+    border-top-color: #fff;
+}
+
+#geoline_ol_js_popup .arrow::before {
+    bottom: 0;
+    border-width: .5rem .5rem 0;
+    border-top-color: #D1D1D1;
+}

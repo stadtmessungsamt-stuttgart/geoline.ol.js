@@ -7,10 +7,12 @@ window.$ = window.jQuery = jquery;
 
 import Feature from "ol/Feature";
 import Map from "ol/Map";
+import Overlay from "ol/Overlay";
 import TileGrid from "ol/tilegrid/TileGrid";
 import View from "ol/View";
 import controlAttribution from "ol/control/Attribution";
 import formatEsriJSON from "ol/format/EsriJSON";
+import formatGeoJSON from "ol/format/GeoJSON";
 import geomPoint from "ol/geom/Point";
 import layerImage from "ol/layer/Image";
 import layerTile from "ol/layer/Tile";
@@ -21,6 +23,7 @@ import sourceXYZ from "ol/source/XYZ";
 import styleIcon from "ol/style/Icon";
 import styleStyle from "ol/style/Style";
 import {defaults as defaultControls} from 'ol/control';
+
 import proj4 from "proj4";
 import {get as getProjection} from "ol/proj";
 import {register} from 'ol/proj/proj4';
@@ -54,6 +57,10 @@ var stma_openlayers = /** @class */ (function () {
 	var config = null;
 	
 	var tileLoadFunction = null;
+	
+	var overlayLayer = null;
+	var overlayLayers = []; //Layer, für die das Overlay aktiviert ist.
+	var overlayFunctions = []; //Funktionen der Layer, für die das Overlay aktiviert ist.
 
 	//	@description	holt die Konfiguration in Abhängigkeit des EPSG-Codes von unserem Internetserver ab.
 	//
@@ -643,6 +650,192 @@ var stma_openlayers = /** @class */ (function () {
 	}
 	
 	/**
+	 *	@method			addGeoJSONfromURL
+	 *	@description	fügt Objekte aus einem geoJSON hinzu. Das geoJSON ist über eine URL erreichbar.
+	 *					
+	 *					Beispiel:
+	 *					mymap.addGeoJSONfromURL("examples/example.geojson");
+	 *
+	 *	@argument		_url {String} URL zur geoJSON-Datei
+	 *
+	 *	@argument		_style {object} (optional) Ausprägungs-Details
+	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_style_Style-Style.html
+	 *
+	 *	@argument		_callbackFunction {function}
+	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+	 *					Der Funktion wird das jeweilige Layerobjekt übergeben. Der Funktion wird false übergeben, wenn das GeoJSON
+	 *					nicht abgerufen werden konnte.
+	 *
+	 *	@returns		{null} -
+	 *
+	 *	@since			v2.0
+	 */
+	stma_openlayers.prototype.addGeoJSONfromURL = function(_url, _zoomTo, _style, _callbackFunction) {
+		$.getJSON(_url, $.proxy(function(_geojson) {
+			this.addGeoJSON(_geojson, _zoomTo, _style, _callbackFunction);
+		}, this)).fail(function(_error) {
+			console.error( "JSON konnte von URL ", _url, " nicht abgerufen werden.", _error);
+			
+			//Callbackfunktion ausführen
+			if (typeof _callbackFunction == "function") {
+				_callbackFunction(false);
+			}
+		});
+	}
+	
+	/**
+	 *	@method			addGeoJSON
+	 *	@description	fügt Objekte aus einem geoJSON hinzu.
+	 *					
+	 *					Beispiel:
+	 *					mymap.addGeoJSON(_geojson);
+	 *
+	 *	@argument		_geojson {object} GeoJSON-Objekt
+	 *
+	 *	@argument		_style {object} (optional) Ausprägungs-Details
+	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_style_Style-Style.html
+	 *
+	 *	@argument		_callbackFunction {function}
+	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+	 *					Der Funktion wird das jeweilige Layerobjekt übergeben.
+	 *
+	 *	@returns		{null} -
+	 *
+	 *	@since			v2.0
+	 */
+	stma_openlayers.prototype.addGeoJSON = function(_geojson, _zoomTo, _style, _callbackFunction) {
+
+		var _projectionGeoJSON = "EPSG:4326";
+		//Wurde das Koordinatensystem angegeben?
+		if ("crs" in _geojson) {
+			if ("properties" in _geojson.crs) {
+				if ("name" in _geojson.crs.properties) {
+					_projectionGeoJSON = _geojson.crs.properties.name;
+				}
+			}
+		}
+		
+		//Bei urn:ogc:def:crs:OGC:1.3:CRS84 wird unter Verwendung von UTM(EPSG:25832) nicht korrekt transformiert.
+		if (_projectionGeoJSON == "urn:ogc:def:crs:OGC:1.3:CRS84") {
+			_projectionGeoJSON = "EPSG:4326";
+		}
+		
+		if (getProjection(_projectionGeoJSON) == null) {
+			console.error("Projektion " + _projectionGeoJSON + " nicht gefunden. Es kann zu falscher Darstellung der Karte kommen");
+		}
+
+		var _geojsonFormat = new formatGeoJSON({
+			dataProjection: _projectionGeoJSON,
+			featureProjection: projection
+		})
+		
+		var _vectorSource = new sourceVector({
+			features: _geojsonFormat.readFeatures(_geojson)
+		});
+		
+		var vectorLayer = new layerVector({
+			zIndex: 60,
+			source: _vectorSource,
+			style: _style
+		});
+		
+		map.addLayer(vectorLayer);
+		
+		if (_zoomTo == true) {
+			//warte bis View bereit ist.
+			var zoomToInterval = window.setInterval(function() {
+				if (map.getView().getZoom() != "undefined") {
+					clearInterval(zoomToInterval);
+					map.getView().fit(_vectorSource.getExtent());
+				}
+			}, 500);
+		}
+		
+		//Callbackfunktion ausführen
+		if (typeof _callbackFunction == "function") {
+			_callbackFunction(vectorLayer);
+		}
+	}
+	
+	/**
+	 *	@method			addOverlayForLayer
+	 *	@description	Bietet die Möglichkeit an für einen Layer ein Overlay hinzuzufügen.
+	 *					
+	 *					Beispiel:
+	 *					mymap.addOverlayForLayer(_layer, _overlayFunction);
+	 *
+	 *	@argument		_layer {object} Das Layerobjekt
+	 *
+	 *	@argument		_overlayFunction {function}
+	 *					Funktion, die bei einem Klick auf das Objekt ausgeführt wird.
+	 *					Die Funktion muss den HTML-Inhalt für ein Overlay-Fenster zurückgeben.
+	 *
+	 *	@returns		{null} -
+	 *
+	 *	@since			v1.2
+	 */
+	stma_openlayers.prototype.addOverlayForLayer = function(_layer, _overlayFunction) {
+		
+		//globaler Overlay-Layer hinzufügen
+		if (overlayLayer == null) {
+			if ($(map.getTargetElement()).find("#geoline_ol_js_popup").length == 0) {
+				//Element für Overlay definieren
+				$(map.getTargetElement()).append("<div id='geoline_ol_js_popup'/>");
+			}
+			var _overlayDIV = $(map.getTargetElement()).find("#geoline_ol_js_popup").get(0);
+			
+			overlayLayer = new Overlay({
+				element: _overlayDIV,
+			});
+			map.addOverlay(overlayLayer);
+			
+			map.on('click', function (evt) {
+				var featuredata = map.forEachFeatureAtPixel(
+					evt.pixel,
+					function (_feature, _layer) {
+						return {
+							"feature": _feature,
+							"layer": _layer
+						};
+					},
+					{
+						layerFilter: function(_layerCandidate) {
+							//Filter, damit nur die Features gefunden werden, für die auch der Overlay aktiviert wurde.
+							if (overlayLayers.includes(_layerCandidate)) {
+								return true;
+							} else {
+								return false;
+							}
+						}
+					}
+				);
+				if (featuredata) {
+					var _overlayFunction = overlayFunctions[overlayLayers.indexOf(featuredata.layer)];
+					
+					$(overlayLayer.getElement()).html(
+						'<div class="arrow"></div>' + 
+						'<div class="content">' + _overlayFunction(featuredata.feature) + '</div>'
+					);
+			
+					overlayLayer.setPosition(evt.coordinate);
+					$(_overlayDIV).show();
+					
+					var _transform = "translate3d(-" + $(_overlayDIV).width()/2 + "px, calc(-" + $(_overlayDIV).height() + "px - 0.5rem), 0px)";
+					$(_overlayDIV).css("transform", _transform);
+				} else {
+					$(_overlayDIV).hide();
+				}
+			});
+		}
+		
+		//Füge Layer zu den Layern hinzu, für die das Overlay aktiviert ist.
+		if (!overlayLayers.includes(_layer)) {
+			overlayLayers.push(_layer);
+			overlayFunctions[overlayLayers.indexOf(_layer)] = _overlayFunction;
+		}
+	}
+	
+	/**
 	 *	@method			addStmaEsriFeatureLayer
 	 *	@description	fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) des Stadtmessungsamtes hinzu.
 	 *					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
@@ -681,7 +874,6 @@ var stma_openlayers = /** @class */ (function () {
 		var _self = this;
 		
 		var _epsgCode = projection.replace("EPSG:", "");
-		console.warn("_epsgCode: " + _epsgCode);
 		
 		var _esrijsonFormat = new formatEsriJSON();
 		
