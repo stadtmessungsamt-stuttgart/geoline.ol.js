@@ -102,11 +102,11 @@ var stma_openlayers = /** @class */ (function () {
 	//
 	//	@argument		_layerParams {object}
 	//					zusätzliche Parameter für das OpenLayer-Layer-Objekt
-	//					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html
+	//					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html}
 	//
 	//	@argument		_sourceParams {object}
 	//					zusätzliche Parameter für das OpenLayer-Source-Objekt
-	//					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html
+	//					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html}
 	//
 	//	@argument		_callbackFunction {function}
 	//					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
@@ -189,11 +189,11 @@ var stma_openlayers = /** @class */ (function () {
 	//
 	//	@argument		_layerParams {object}
 	//					zusätzliche Parameter für das OpenLayer-Layer-Objekt
-	//					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html
+	//					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html}
 	//
 	//	@argument		_sourceParams {object}
 	//					zusätzliche Parameter für das OpenLayer-Source-Objekt
-	//					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html
+	//					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html}
 	//
 	//	@argument		ags_info {object}
 	//					JSON-Objekt mit den Karteneigenschaften (von ../MapServer?f=json)
@@ -289,11 +289,11 @@ var stma_openlayers = /** @class */ (function () {
 	//
 	//	@argument		_layerParams {object}
 	//					zusätzliche Parameter für das OpenLayer-Layer-Objekt
-	//					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html
+	//					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html}
 	//
 	//	@argument		_sourceParams {object}
 	//					zusätzliche Parameter für das OpenLayer-Source-Objekt
-	//					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html
+	//					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html}
 	//
 	//	@argument		ags_info {object}
 	//					JSON-Objekt mit den Karteneigenschaften (von ../MapServer?f=json)
@@ -354,33 +354,38 @@ var stma_openlayers = /** @class */ (function () {
 	
 	/**
 	 *	@method			initMap
-	 *	@description	initialisiert die Karte
-	 *					Beispiel:
-	 *					mymap = new stma_openlayers();
-	 *					mymap.initMap(25832, {}, {});
+	 *	@description	initialisiert die Karte<br/>
+	 *					Beispiel:<br/>
+	 *					<code>mymap = new stma_openlayers();<br/>
+	 *					mymap.initMap(25832, {}, {});</code>
 	 *
 	 *	@argument		_epsgCode {int} EPSG-Code des Koordinatensystems.
-	 *					Unterstütze Werte sind: 25832, 3857
-						Siehe auch: http://epsg.io/25832, http://epsg.io/3857 
+	 *					Unterstütze Werte sind: 25832, 3857<br/>
+	 *					Siehe auch: {@link https://epsg.io/25832}, {@link http://epsg.io/3857}
 	 *					
 	 *	@argument		_mapParams {object}
-	 *					zusätzliche Parameter für das OpenLayer-Map-Objekt
-	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_Map-Map.html
+	 *					zusätzliche Parameter für das OpenLayer-Map-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_Map-Map.html}
 	 *
 	 *	@argument		_viewParams {object}
-	 *					zusätzliche Parameter für das OpenLayer-View-Objekt
-	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_View-View.html
+	 *					zusätzliche Parameter für das OpenLayer-View-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_View-View.html}
 	 *
 	 *	@argument		_customParams {object}
-	 *					zusätzliche Parameter für geoline.ol.js
+	 *					zusätzliche Parameter für geoline.ol.js<br/>
 	 *					Unterstützte Parameter:
-	 *					-tileLoadFunction: Optionale Funktion, die bei gecachten Kartendiensten ausgeführt wird, um eine Kachel zu laden.
-	 *						Beispiel: { tileLoadFunction: function(imageTile, src) { imageTile.getImage().src = src;}}
-	 *						Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_XYZ-XYZ.html
+	 *					<ul>
+	 *					<li>tileLoadFunction: Optionale Funktion, die bei gecachten Kartendiensten ausgeführt wird, um eine Kachel zu laden.<br/>
+	 *						Beispiel:<br/>
+	 *						<code>{ tileLoadFunction: function(imageTile, src) { imageTile.getImage().src = src;}}</code><br/>
+	 *						Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_XYZ-XYZ.html}
+	 *					</li>
 	 *
-	 *					-config: Hier kann das Konfigurationsobjekt, das normalerweise direkt vom Server des Stadtmessungsamtes geladen wird überschrieben werden.
-	 *						Diese Funktion sollte nur sparsam genutzt werden, zum Beispiel für die Offlineverfügbarkeit in Apps.
+	 *					<li>config: Hier kann das Konfigurationsobjekt, das normalerweise direkt vom Server des Stadtmessungsamtes geladen wird überschrieben werden.<br/>
+	 *						Diese Funktion sollte nur sparsam genutzt werden, zum Beispiel für die Offlineverfügbarkeit in Apps.<br/>
 	 *						Wird diese Funktion verwendet, so muss sichergestellt werden, dass die übergebene Konfiguration aktuell ist.
+	 *					</li>
+	 *					</ul>
 	 *
 	 *	@returns		{null} -
 	 *
@@ -477,29 +482,30 @@ var stma_openlayers = /** @class */ (function () {
 	
 	/**
 	 *	@method			addEsriLayer
-	 *	@description	fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) hinzu.
+	 *	@description	fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) hinzu.<br/>
 	 *					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
-	 *					10:	gecacht
-	 *					20: gecacht - Kartendienst des Stadtmessungsamtes
-	 *					40: dynamisch
-	 *					50: dynamisch - Kartendienst des Stadtmessungsamtes
-	 *					
-	 *					Beispiel:
-	 *					mymap.addEsriLayer("https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer");
+	 *					<ul>
+	 *					<li>10:	gecacht</li>
+	 *					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>
+	 *					<li>40: dynamisch</li>
+	 *					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
+	 *					</ul>
+	 *					Beispiel:<br/>
+	 *					<code>mymap.addEsriLayer("https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer");</code>
 	 *
 	 *	@argument		_url {String} URL des Kartendienstes
 	 *					Kartendienste des Stadtmessungsamtes sollten über die Funktion addStmaEsriLayer hinzugefügt werden.
 	 *
 	 *	@argument		_layerParams {object}
-	 *					zusätzliche Parameter für das OpenLayer-Layer-Objekt
-	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html
+	 *					zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html}
 	 *
 	 *	@argument		_sourceParams {object}
-	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt
-	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html
+	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html}
 	 *
 	 *	@argument		_callbackFunction {function}
-	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.<br/>
 	 *					Der Funktion wird das jeweilige Layerobjekt übergeben.
 	 *
 	 *	@returns		{null} -
@@ -519,27 +525,28 @@ var stma_openlayers = /** @class */ (function () {
 	
 	/**
 	 *	@method			addStmaEsriLayer
-	 *	@description	fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) des Stadtmessungsamtes hinzu.
+	 *	@description	fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) des Stadtmessungsamtes hinzu.<br/>
 	 *					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
-	 *					10:	gecacht
-	 *					20: gecacht - Kartendienst des Stadtmessungsamtes
-	 *					40: dynamisch
-	 *					50: dynamisch - Kartendienst des Stadtmessungsamtes
-	 *					
-	 *					Beispiel:
-	 *					mymap.addStmaEsriLayer("1_Base/Stadtkarte_Internet_c");
+	 *					<ul>
+	 *					<li>10:	gecacht</li>
+	 *					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>
+	 *					<li>40: dynamisch</li>
+	 *					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
+	 *					</ul>
+	 *					Beispiel:<br/>
+	 *					<code>mymap.addStmaEsriLayer("1_Base/Stadtkarte_Internet_c");</code>
 	 *
 	 *	@argument		_mapservice {String} Bezeichnung des Kartendienstes
 	 *					Wenn die URL des Kartendienstes beispielsweise https://SERVER/ArcGIS/rest/services/ORDNER/KARTENDIENST/MapServer heißt,
 	 *					so sollte ORDNER/KARTENDIENST angegeben werden.
 	 *
 	 *	@argument		_layerParams {object}
-	 *					zusätzliche Parameter für das OpenLayer-Layer-Objekt
-	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html
+	 *					zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html}
 	 *
 	 *	@argument		_sourceParams {object}
-	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt
-	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html
+	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html}
 	 *
 	 *	@argument		_callbackFunction {function}
 	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
@@ -557,16 +564,19 @@ var stma_openlayers = /** @class */ (function () {
 	
 	/**
 	 *	@method			addStmaBaseLayer
-	 *	@description	fügt einen Basis-Kartendienst (dynamisch / gecacht) des Stadtmessungsamtes hinzu.
+	 *	@description	fügt einen Basis-Kartendienst (dynamisch / gecacht) des Stadtmessungsamtes hinzu.<br/>
 	 *					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
-	 *					10: gecacht
-	 *					20: gecacht - Kartendienst des Stadtmessungsamtes
-	 *					40: dynamisch
-	 *					50: dynamisch - Kartendienst des Stadtmessungsamtes
-	 *					
-	 *					Beispiel:
-	 *					mymap.addStmaBaseLayer("Grundkarte");
-	 *					mymap.addStmaBaseLayer("Luftbild");
+	 *					<ul>
+	 *					<li>10:	gecacht</li>
+	 *					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>
+	 *					<li>40: dynamisch</li>
+	 *					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
+	 *					</ul>
+	 *					Beispiel:<br/>
+	 *					<code>
+	 *						mymap.addStmaBaseLayer("Grundkarte");<br/>
+	 *						mymap.addStmaBaseLayer("Luftbild");
+	 *					</code>
 	 *
 	 *	@argument		_mapname {String} sprechende Bezeichnung des Kartendienstes
 	 *					Für ausgewählte Basiskartendienste kann hierüber über eine sprechende Bezeichnung der Kartendienst hinzugefügt werden.
@@ -574,12 +584,12 @@ var stma_openlayers = /** @class */ (function () {
 	 *					Deswegen sollten die Basiskarten (Grundkarte, Luftbild, ..) immer über diese Funktion eingebundne werden.
 	 *
 	 *	@argument		_layerParams {object}
-	 *					zusätzliche Parameter für das OpenLayer-Layer-Objekt
-	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html
+	 *					zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html}
 	 *
 	 *	@argument		_sourceParams {object}
-	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt
-	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html
+	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html}
 	 *
 	 *	@argument		_callbackFunction {function}
 	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
@@ -601,13 +611,13 @@ var stma_openlayers = /** @class */ (function () {
 	
 	/**
 	 *	@method			addPoints
-	 *	@description	fügt einzelne Punkte hinzu.
-	 *					Wenn nichts anderes angegeben ist, dann gilt der zIndex 60.
+	 *	@description	fügt einzelne Punkte hinzu.<br/>
+	 *					Wenn nichts anderes angegeben ist, dann gilt der zIndex 60.<br/>
 	 *					
-	 *					Beispiel:
-	 *					mymap.addPoints([[3513223, 5405026]], "images/target.png");
+	 *					Beispiel:<br/>
+	 *					<code>mymap.addPoints([[3513223, 5405026]], "images/target.png");</code>
 	 *
-	 *	@argument		_pointCoords {Array} Array von Koordinatenpaaren
+	 *	@argument		_pointCoords {Array} Array von Koordinatenpaaren<br/>
 	 *					[ [x,y], [x,y], ... ]
 	 *
 	 *	@argument		_imageURL {String} URL zu dem Bild des Punktes / Data-URL des Bildes
@@ -651,15 +661,15 @@ var stma_openlayers = /** @class */ (function () {
 	
 	/**
 	 *	@method			addGeoJSONfromURL
-	 *	@description	fügt Objekte aus einem geoJSON hinzu. Das geoJSON ist über eine URL erreichbar.
+	 *	@description	fügt Objekte aus einem geoJSON hinzu. Das geoJSON ist über eine URL erreichbar.<br/>
 	 *					
 	 *					Beispiel:
-	 *					mymap.addGeoJSONfromURL("examples/example.geojson");
+	 *					<code>mymap.addGeoJSONfromURL("examples/example.geojson");</code>
 	 *
 	 *	@argument		_url {String} URL zur geoJSON-Datei
 	 *
-	 *	@argument		_style {object} (optional) Ausprägungs-Details
-	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_style_Style-Style.html
+	 *	@argument		_style {object} (optional) Ausprägungs-Details<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_style_Style-Style.html}
 	 *
 	 *	@argument		_callbackFunction {function}
 	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
@@ -688,12 +698,12 @@ var stma_openlayers = /** @class */ (function () {
 	 *	@description	fügt Objekte aus einem geoJSON hinzu.
 	 *					
 	 *					Beispiel:
-	 *					mymap.addGeoJSON(_geojson);
+	 *					<code>mymap.addGeoJSON(_geojson);</code>
 	 *
 	 *	@argument		_geojson {object} GeoJSON-Objekt
 	 *
-	 *	@argument		_style {object} (optional) Ausprägungs-Details
-	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_style_Style-Style.html
+	 *	@argument		_style {object} (optional) Ausprägungs-Details<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_style_Style-Style.html}
 	 *
 	 *	@argument		_callbackFunction {function}
 	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
@@ -762,7 +772,7 @@ var stma_openlayers = /** @class */ (function () {
 	 *	@description	Bietet die Möglichkeit an für einen Layer ein Overlay hinzuzufügen.
 	 *					
 	 *					Beispiel:
-	 *					mymap.addOverlayForLayer(_layer, _overlayFunction);
+	 *					<code>mymap.addOverlayForLayer(_layer, _overlayFunction);</code>
 	 *
 	 *	@argument		_layer {object} Das Layerobjekt
 	 *
@@ -839,13 +849,15 @@ var stma_openlayers = /** @class */ (function () {
 	 *	@method			addStmaEsriFeatureLayer
 	 *	@description	fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) des Stadtmessungsamtes hinzu.
 	 *					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
-	 *					10:	gecacht
-	 *					20: gecacht - Kartendienst des Stadtmessungsamtes
-	 *					40: dynamisch
-	 *					50: dynamisch - Kartendienst des Stadtmessungsamtes
+	 *					<ul>
+	 *					<li>10:	gecacht</li>
+	 *					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>
+	 *					<li>40: dynamisch</li>
+	 *					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
+	 *					</ul>
 	 *					
-	 *					Beispiel:
-	 *					mymap.addStmaEsriFeatureLayer("1_Base/Stadtkarte_Internet_c");
+	 *					Beispiel:<br/>
+	 *					<code>mymap.addStmaEsriFeatureLayer("1_Base/Stadtkarte_Internet_c");</code>
 	 *
 	 *	@argument		_mapservice {String} Bezeichnung des Kartendienstes
 	 *					Wenn die URL des Kartendienstes beispielsweise https://SERVER/ArcGIS/rest/services/ORDNER/KARTENDIENST/MapServer heißt,
@@ -859,8 +871,8 @@ var stma_openlayers = /** @class */ (function () {
 	 *					Funktion, wie die Objekte aussehen sollen. Der Funktion wird als 1. Parameter das feature-Objekt (ol.Feature) übergeben.
 	 *					Mit Hilfe von z.B. feature.get('activeprod') könnte dann der Inhalt des Attributes 'activeprod' abgerufen werden und in Abhängigkeit
 	 *					von ihm unterschiedliche Stile angegeben werden.
-	 *					Rückgabe der Funktion muss ein ol.style.Style-Objekt sein.
-	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_style_Style-Style.html
+	 *					Rückgabe der Funktion muss ein ol.style.Style-Objekt sein.<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_style_Style-Style.html}
 	 *
 	 *	@argument		_callbackFunction {function}
 	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
@@ -932,11 +944,11 @@ var stma_openlayers = /** @class */ (function () {
 	
 	/**
 	 *	@method			getMap
-	 *	@description	gibt das OpenLayer-Map-Objekt zurück.
-	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_Map-Map.html
+	 *	@description	gibt das OpenLayer-Map-Objekt zurück.<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_Map-Map.html}
 	 *
-	 *	@returns		{object} ol.Map
-	 *					Siehe https://openlayers.org/en/v6.3.1/apidoc/module-ol_Map-Map.html
+	 *	@returns		{object} ol.Map<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.3.1/apidoc/module-ol_Map-Map.html}
 	 *
 	 *	@since			v0.0
 	 */
@@ -946,7 +958,7 @@ var stma_openlayers = /** @class */ (function () {
 	
 	/**
 	 *	@method			getConfig
-	 *	@description	gibt die interne Konfiguration von geoline.ol.js zurück.
+	 *	@description	gibt die interne Konfiguration von geoline.ol.js zurück.<br/>
 	 *					Diese Funktion sollte nur sparsam genutzt werden, zum Beispiel zum Ermitteln der Konfiguration für die Offlineverfügbarkeit in Apps.
 	 *
 	 *	@returns		{object}

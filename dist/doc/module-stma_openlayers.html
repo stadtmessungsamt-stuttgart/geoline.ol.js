@@ -1,0 +1,2328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Module: stma_openlayers</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Module: stma_openlayers</h1>
+
+    
+
+
+
+
+<section>
+
+<header>
+    
+        
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+        
+
+        
+    
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Methods</h3>
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~addEsriLayer"><span class="type-signature">(inner) </span>addEsriLayer<span class="signature">(_url, _layerParams, _sourceParams, _callbackFunction)</span><span class="type-signature"> &rarr; {null}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) hinzu.<br/>					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:					<ul>					<li>10:	gecacht</li>					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>					<li>40: dynamisch</li>					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>					</ul>					Beispiel:<br/>					<code>mymap.addEsriLayer("https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer");</code>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>_url</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">URL des Kartendienstes					Kartendienste des Stadtmessungsamtes sollten über die Funktion addStmaEsriLayer hinzugefügt werden.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_layerParams</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>					Siehe <a href="https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html">https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html</a></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_sourceParams</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>					Siehe <a href="https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html">https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html</a></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_callbackFunction</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.<br/>					Der Funktion wird das jeweilige Layerobjekt übergeben.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+    <dt class="tag-since">Since:</dt>
+    <dd class="tag-since"><ul class="dummy"><li>v0.0</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    -
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">null</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~addGeoJSON"><span class="type-signature">(inner) </span>addGeoJSON<span class="signature">(_geojson, _style, _callbackFunction)</span><span class="type-signature"> &rarr; {null}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    fügt Objekte aus einem geoJSON hinzu.										Beispiel:					<code>mymap.addGeoJSON(_geojson);</code>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>_geojson</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">GeoJSON-Objekt</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_style</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">(optional) Ausprägungs-Details<br/>					Siehe <a href="https://openlayers.org/en/v6.3.1/apidoc/module-ol_style_Style-Style.html">https://openlayers.org/en/v6.3.1/apidoc/module-ol_style_Style-Style.html</a></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_callbackFunction</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.					Der Funktion wird das jeweilige Layerobjekt übergeben.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+    <dt class="tag-since">Since:</dt>
+    <dd class="tag-since"><ul class="dummy"><li>v2.0</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    -
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">null</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~addGeoJSONfromURL"><span class="type-signature">(inner) </span>addGeoJSONfromURL<span class="signature">(_url, _style, _callbackFunction)</span><span class="type-signature"> &rarr; {null}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    fügt Objekte aus einem geoJSON hinzu. Das geoJSON ist über eine URL erreichbar.<br/>										Beispiel:					<code>mymap.addGeoJSONfromURL("examples/example.geojson");</code>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>_url</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">URL zur geoJSON-Datei</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_style</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">(optional) Ausprägungs-Details<br/>					Siehe <a href="https://openlayers.org/en/v6.3.1/apidoc/module-ol_style_Style-Style.html">https://openlayers.org/en/v6.3.1/apidoc/module-ol_style_Style-Style.html</a></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_callbackFunction</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.					Der Funktion wird das jeweilige Layerobjekt übergeben. Der Funktion wird false übergeben, wenn das GeoJSON					nicht abgerufen werden konnte.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+    <dt class="tag-since">Since:</dt>
+    <dd class="tag-since"><ul class="dummy"><li>v2.0</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    -
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">null</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~addOverlayForLayer"><span class="type-signature">(inner) </span>addOverlayForLayer<span class="signature">(_layer, _overlayFunction)</span><span class="type-signature"> &rarr; {null}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Bietet die Möglichkeit an für einen Layer ein Overlay hinzuzufügen.										Beispiel:					<code>mymap.addOverlayForLayer(_layer, _overlayFunction);</code>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>_layer</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Das Layerobjekt</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_overlayFunction</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Funktion, die bei einem Klick auf das Objekt ausgeführt wird.					Die Funktion muss den HTML-Inhalt für ein Overlay-Fenster zurückgeben.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+    <dt class="tag-since">Since:</dt>
+    <dd class="tag-since"><ul class="dummy"><li>v1.2</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    -
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">null</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~addPoints"><span class="type-signature">(inner) </span>addPoints<span class="signature">(_pointCoords, _imageURL, _callbackFunction)</span><span class="type-signature"> &rarr; {null}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    fügt einzelne Punkte hinzu.<br/>					Wenn nichts anderes angegeben ist, dann gilt der zIndex 60.<br/>										Beispiel:<br/>					<code>mymap.addPoints([[3513223, 5405026]], "images/target.png");</code>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>_pointCoords</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Array</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Array von Koordinatenpaaren<br/>					[ [x,y], [x,y], ... ]</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_imageURL</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">URL zu dem Bild des Punktes / Data-URL des Bildes</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_callbackFunction</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.					Der Funktion wird das jeweilige Layerobjekt übergeben.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+    <dt class="tag-since">Since:</dt>
+    <dd class="tag-since"><ul class="dummy"><li>v0.0</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    -
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">null</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~addStmaBaseLayer"><span class="type-signature">(inner) </span>addStmaBaseLayer<span class="signature">(_mapname, _layerParams, _sourceParams, _callbackFunction)</span><span class="type-signature"> &rarr; {null}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    fügt einen Basis-Kartendienst (dynamisch / gecacht) des Stadtmessungsamtes hinzu.<br/>					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:					<ul>					<li>10:	gecacht</li>					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>					<li>40: dynamisch</li>					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>					</ul>					Beispiel:<br/>					<code>						mymap.addStmaBaseLayer("Grundkarte");<br/>						mymap.addStmaBaseLayer("Luftbild");					</code>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>_mapname</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">sprechende Bezeichnung des Kartendienstes					Für ausgewählte Basiskartendienste kann hierüber über eine sprechende Bezeichnung der Kartendienst hinzugefügt werden.					Eventuelle Kartendienstnamenänderungen werden automatisch von der API berücksichtigt.					Deswegen sollten die Basiskarten (Grundkarte, Luftbild, ..) immer über diese Funktion eingebundne werden.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_layerParams</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>					Siehe <a href="https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html">https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html</a></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_sourceParams</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>					Siehe <a href="https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html">https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html</a></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_callbackFunction</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.					Der Funktion wird das jeweilige Layerobjekt übergeben.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+    <dt class="tag-since">Since:</dt>
+    <dd class="tag-since"><ul class="dummy"><li>v0.0</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    -
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">null</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~addStmaEsriFeatureLayer"><span class="type-signature">(inner) </span>addStmaEsriFeatureLayer<span class="signature">(_mapservice, _layerId, _styleFunction, _callbackFunction)</span><span class="type-signature"> &rarr; {null}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) des Stadtmessungsamtes hinzu.					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:					<ul>					<li>10:	gecacht</li>					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>					<li>40: dynamisch</li>					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>					</ul>										Beispiel:<br/>					<code>mymap.addStmaEsriFeatureLayer("1_Base/Stadtkarte_Internet_c");</code>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>_mapservice</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Bezeichnung des Kartendienstes					Wenn die URL des Kartendienstes beispielsweise https://SERVER/ArcGIS/rest/services/ORDNER/KARTENDIENST/MapServer heißt,					so sollte ORDNER/KARTENDIENST angegeben werden.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_layerId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Integer</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">LayerId im Kartendienst					Wenn die URL des Kartendienstes beispielsweise https://SERVER/ArcGIS/rest/services/ORDNER/KARTENDIENST/MapServer/LAYERID heißt,					so sollte LAYERID angegeben werden.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_styleFunction</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Funktion, wie die Objekte aussehen sollen. Der Funktion wird als 1. Parameter das feature-Objekt (ol.Feature) übergeben.					Mit Hilfe von z.B. feature.get('activeprod') könnte dann der Inhalt des Attributes 'activeprod' abgerufen werden und in Abhängigkeit					von ihm unterschiedliche Stile angegeben werden.					Rückgabe der Funktion muss ein ol.style.Style-Objekt sein.<br/>					Siehe <a href="https://openlayers.org/en/v6.3.1/apidoc/module-ol_style_Style-Style.html">https://openlayers.org/en/v6.3.1/apidoc/module-ol_style_Style-Style.html</a></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_callbackFunction</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.					Der Funktion wird das jeweilige Layerobjekt übergeben.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+    <dt class="tag-since">Since:</dt>
+    <dd class="tag-since"><ul class="dummy"><li>v0.86</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    -
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">null</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~addStmaEsriLayer"><span class="type-signature">(inner) </span>addStmaEsriLayer<span class="signature">(_mapservice, _layerParams, _sourceParams, _callbackFunction)</span><span class="type-signature"> &rarr; {null}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) des Stadtmessungsamtes hinzu.<br/>					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:					<ul>					<li>10:	gecacht</li>					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>					<li>40: dynamisch</li>					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>					</ul>					Beispiel:<br/>					<code>mymap.addStmaEsriLayer("1_Base/Stadtkarte_Internet_c");</code>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>_mapservice</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Bezeichnung des Kartendienstes					Wenn die URL des Kartendienstes beispielsweise https://SERVER/ArcGIS/rest/services/ORDNER/KARTENDIENST/MapServer heißt,					so sollte ORDNER/KARTENDIENST angegeben werden.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_layerParams</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>					Siehe <a href="https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html">https://openlayers.org/en/v6.3.1/apidoc/module-ol_layer_Layer-Layer.html</a></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_sourceParams</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>					Siehe <a href="https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html">https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_Source-Source.html</a></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_callbackFunction</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.					Der Funktion wird das jeweilige Layerobjekt übergeben.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+    <dt class="tag-since">Since:</dt>
+    <dd class="tag-since"><ul class="dummy"><li>v0.0</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    -
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">null</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~getConfig"><span class="type-signature">(inner) </span>getConfig<span class="signature">()</span><span class="type-signature"> &rarr; {object}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    gibt die interne Konfiguration von geoline.ol.js zurück.<br/>					Diese Funktion sollte nur sparsam genutzt werden, zum Beispiel zum Ermitteln der Konfiguration für die Offlineverfügbarkeit in Apps.
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+    <dt class="tag-since">Since:</dt>
+    <dd class="tag-since"><ul class="dummy"><li>v1.0</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">object</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~getMap"><span class="type-signature">(inner) </span>getMap<span class="signature">()</span><span class="type-signature"> &rarr; {object}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    gibt das OpenLayer-Map-Objekt zurück.<br/>					Siehe <a href="https://openlayers.org/en/v6.3.1/apidoc/module-ol_Map-Map.html">https://openlayers.org/en/v6.3.1/apidoc/module-ol_Map-Map.html</a>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+    <dt class="tag-since">Since:</dt>
+    <dd class="tag-since"><ul class="dummy"><li>v0.0</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    ol.Map<br/>					Siehe <a href="https://openlayers.org/en/v6.3.1/apidoc/module-ol_Map-Map.html">https://openlayers.org/en/v6.3.1/apidoc/module-ol_Map-Map.html</a>
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">object</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~initMap"><span class="type-signature">(inner) </span>initMap<span class="signature">(_epsgCode, _mapParams, _viewParams, _customParams)</span><span class="type-signature"> &rarr; {null}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    initialisiert die Karte<br/>					Beispiel:<br/>					<code>mymap = new stma_openlayers();<br/>					mymap.initMap(25832, {}, {});</code>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>_epsgCode</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">int</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">EPSG-Code des Koordinatensystems.					Unterstütze Werte sind: 25832, 3857<br/>					Siehe auch: <a href="https://epsg.io/25832">https://epsg.io/25832</a>, <a href="http://epsg.io/3857">http://epsg.io/3857</a></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_mapParams</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">zusätzliche Parameter für das OpenLayer-Map-Objekt<br/>					Siehe <a href="https://openlayers.org/en/v6.3.1/apidoc/module-ol_Map-Map.html">https://openlayers.org/en/v6.3.1/apidoc/module-ol_Map-Map.html</a></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_viewParams</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">zusätzliche Parameter für das OpenLayer-View-Objekt<br/>					Siehe <a href="https://openlayers.org/en/v6.3.1/apidoc/module-ol_View-View.html">https://openlayers.org/en/v6.3.1/apidoc/module-ol_View-View.html</a></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_customParams</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">zusätzliche Parameter für geoline.ol.js<br/>					Unterstützte Parameter:					<ul>					<li>tileLoadFunction: Optionale Funktion, die bei gecachten Kartendiensten ausgeführt wird, um eine Kachel zu laden.<br/>						Beispiel:<br/>						<code>{ tileLoadFunction: function(imageTile, src) { imageTile.getImage().src = src;}}</code><br/>						Siehe <a href="https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_XYZ-XYZ.html">https://openlayers.org/en/v6.3.1/apidoc/module-ol_source_XYZ-XYZ.html</a>					</li>					<li>config: Hier kann das Konfigurationsobjekt, das normalerweise direkt vom Server des Stadtmessungsamtes geladen wird überschrieben werden.<br/>						Diese Funktion sollte nur sparsam genutzt werden, zum Beispiel für die Offlineverfügbarkeit in Apps.<br/>						Wird diese Funktion verwendet, so muss sichergestellt werden, dass die übergebene Konfiguration aktuell ist.					</li>					</ul></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+    <dt class="tag-since">Since:</dt>
+    <dd class="tag-since"><ul class="dummy"><li>v0.0</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    -
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">null</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~stma_openlayers"><span class="type-signature">(inner) </span>stma_openlayers<span class="signature">()</span><span class="type-signature"> &rarr; {null}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Momentan ist OpenLayers 6.3.1 eingebunden.
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+    <dt class="tag-since">Since:</dt>
+    <dd class="tag-since"><ul class="dummy"><li>v0.0</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    -
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">null</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-stma_openlayers.html">stma_openlayers</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Tue Mar 02 2021 15:23:12 GMT+0100 (Mitteleuropäische Normalzeit)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

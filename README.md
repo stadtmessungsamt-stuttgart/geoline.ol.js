@@ -9,8 +9,8 @@ Einbindung der Kartendienste der Stadtmessungsamtes Stuttgart.
 
 ## Was ist inbegriffen?
 
-* Dokumentation
-* Beispiele
+* [Dokumentation](https://gis5.stuttgart.de/geoline/geoline.ol.js/doc/index.html)
+* [Beispiele](https://gis5.stuttgart.de/geoline/geoline.ol.js/examples/example.html)
 
 ## Installation
 Um die API zu nutzen, können Sie das Paket installieren:
