@@ -13,13 +13,17 @@ import View from "ol/View";
 import controlAttribution from "ol/control/Attribution";
 import formatEsriJSON from "ol/format/EsriJSON";
 import formatGeoJSON from "ol/format/GeoJSON";
+import formatWMTSCapabilities from "ol/format/WMTSCapabilities";
 import geomPoint from "ol/geom/Point";
 import layerImage from "ol/layer/Image";
 import layerTile from "ol/layer/Tile";
 import layerVector from "ol/layer/Vector";
 import sourceImageArcGISRest from "ol/source/ImageArcGISRest";
+import sourceImageWMS from "ol/source/ImageWMS";
+import sourceTileWMS from 'ol/source/TileWMS';
 import sourceVector from "ol/source/Vector";
 import sourceXYZ from "ol/source/XYZ";
+import sourceWMTS, {optionsFromCapabilities as sourceWMTS_optionsFromCapabilities} from 'ol/source/WMTS';
 import styleIcon from "ol/style/Icon";
 import styleStyle from "ol/style/Style";
 import {defaults as defaultControls} from 'ol/control';
@@ -85,6 +89,13 @@ var stma_openlayers = /** @class */ (function () {
 						return item.ags_host;
 					});
 					
+					_data.wmts_hosts = $.map(_data.wmts_services, function(item){
+						return item.host;
+					});
+					
+					_data.wms_hosts = $.map(_data.wms_services, function(item){
+						return item.host;
+					});
 					config = _data;
 				},
 				error: function (xhr, status) {
@@ -182,6 +193,207 @@ var stma_openlayers = /** @class */ (function () {
 		});
 	}
 	
+	//	@description	fügt einen gecachten WMTS-Kartendienst hinzu.
+	//
+	//	@argument		_url {String}
+	//					GetCapabilities-URL zum WMTS
+	//
+	//	@argument		_layerName {String}
+	//					Name des Layers, der eingebunden werden soll
+	//
+	//	@argument		_layerParams {object}
+	//					zusätzliche Parameter für das OpenLayer-Layer-Objekt
+	//					Siehe {@link https://openlayers.org/en/v6.5.0/apidoc/module-ol_layer_Layer-Layer.html}
+	//
+	//	@argument		_sourceParams {object}
+	//					zusätzliche Parameter für das OpenLayer-Source-Objekt
+	//					Siehe {@link https://openlayers.org/en/v6.5.0/apidoc/module-ol_source_Source-Source.html}
+	//
+	//	@argument		_callbackFunction {function}
+	//					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+	//					Der Funktion wird das jeweilige Layerobjekt übergeben.
+	//
+	//	@since			v2.1
+	var _addWMTSLayer = function(_url, _layerName, _layerParams, _sourceParams, _callbackFunction) {
+		var _self = this;
+		
+		//GetCapabilities abrufen
+		var url = new URL(_url);
+		$.ajax({
+			url: _url,
+			type: "POST",
+			success: function (wmtscapabilities) {
+				var _formatWMTSCapabilities = new formatWMTSCapabilities();
+				
+				//sourceParams
+				var sourceParams = sourceWMTS_optionsFromCapabilities(_formatWMTSCapabilities.read(wmtscapabilities), {
+					layer: _layerName
+				});
+				
+				//diese Parameter können nicht überdefiniert werden.
+				var predefinedSourceParams = {};
+				
+				if (jQuery.inArray(url.hostname, _getConfig().wmts_hosts) > -1) {
+					//URL-Parameter überdefinieren, da diese nicht korrekt ermittelt werden können.
+					predefinedSourceParams.urls = [ url.origin + url.pathname + "/rest/" + _layerName + "/{style}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}?format=image/png" ];
+					predefinedSourceParams.requestEncoding = "REST";
+					
+					//Copyrighthinweis
+					predefinedSourceParams.attributions = "© Stadtmessungsamt, LHS Stuttgart";
+				}
+				$.extend(true, sourceParams, _sourceParams, predefinedSourceParams);
+				
+				var _zIndex = 10;
+				//anderer zIndex für Stadtmessungsamt-Kartendienste
+				if (jQuery.inArray(url.hostname, _getConfig().wmts_hosts) > -1) {
+					_zIndex = 20;
+				}
+				
+				//layerParams
+				var layerParams = {
+					zIndex: _zIndex
+				};
+				
+				//diese Parameter können nicht überdefiniert werden.
+				var predefinedLayerParams = {
+					source: new sourceWMTS(sourceParams)
+				};
+				$.extend(true, layerParams, _layerParams, predefinedLayerParams);
+				
+				//gecachten Layer erstellen
+				var layer = new layerTile(layerParams);
+				
+				//View konfigurieren, falls diese noch nicht konfiguriert wurde
+				if (map.getView().getProjection().getCode() != projection) {
+					$.extend(true, viewParams, { resolutions: sourceParams.tileGrid.getResolutions(), constrainResolution: true} );
+					map.setView(new View(viewParams));
+				}
+				
+				//Layer hinzufügen
+				map.addLayer(layer);
+				
+				//Callbackfunktion ausführen
+				if (typeof _callbackFunction == "function") {
+					_callbackFunction(layer);
+				}
+			},
+			error: function (xhr, status) {
+				console.error("Fehler beim Abrufen der WMTS-GetCapabilities", xhr, status);
+			}
+		});
+	}
+	
+	//	@description	fügt einen dynamischen WMS-Kartendienst hinzu.
+	//					Der Layer kann gekachelt oder als ganzes Bild abgerufen werden. Standard ist der Abruf als ganzes Bild,
+	//					da aber einige WMS-Dienste keine großen Bilder auf einmal zurückgeben können, kann der WMS auch gekachelt
+	//					abgerufen werden. Dies kann zu Lasten der Kartographie gehen - so kann es passieren, dass Beschriftungen
+	//					abgeschnitten oder mehrfach im Kartenbild enthalten sind.
+	//					Zum gekachelten Abruf muss als _sourceParams { "TILED": true } übergeben werden.
+	//
+	//	@argument		_url {String}
+	//					URL zum WMS
+	//
+	//	@argument		_layerName {String}
+	//					Name des Layers, der eingebunden werden soll
+	//
+	//	@argument		_layerParams {object}
+	//					zusätzliche Parameter für das OpenLayer-Layer-Objekt
+	//					Siehe {@link https://openlayers.org/en/v6.5.0/apidoc/module-ol_layer_Layer-Layer.html}
+	//
+	//	@argument		_sourceParams {object}
+	//					zusätzliche Parameter für das OpenLayer-Source-Objekt
+	//					Siehe {@link https://openlayers.org/en/v6.5.0/apidoc/module-ol_source_Source-Source.html}
+	//
+	//	@argument		_callbackFunction {function}
+	//					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
+	//					Der Funktion wird das jeweilige Layerobjekt übergeben.
+	//
+	//	@since			v2.1
+	var _addWMSLayer = function(_url, _layerName, _layerParams, _sourceParams, _callbackFunction) {
+		var _self = this;
+		
+		//sourceParams
+		var sourceParams = {
+			url: _url,
+			params: {"LAYERS": _layerName }
+		};
+		
+		//diese Parameter können nicht überdefiniert werden.
+		var predefinedSourceParams = {
+			ratio: 1
+		};
+		
+		var url = new URL(_url);
+		if (jQuery.inArray(url.hostname, _getConfig().wms_hosts) > -1) {					
+			//Copyrighthinweis
+			predefinedSourceParams.attributions = "© Stadtmessungsamt, LHS Stuttgart";
+		}
+		
+		$.extend(true, sourceParams, _sourceParams, predefinedSourceParams);
+		
+		//Der Layer kann gekachelt oder als ganzes Bild abgerufen werden.
+		if (sourceParams.TILED == true) {
+			//gekachelter Abruf = gecacht
+			
+			var _zIndex = 10;
+			//anderer zIndex für Stadtmessungsamt-Kartendienste
+			if (jQuery.inArray(url.hostname, _getConfig().wms_hosts) > -1) {
+				_zIndex = 20;
+			}
+			
+			//layerParams
+			var layerParams = {
+				zIndex: _zIndex
+			};
+			
+			//diese Parameter können nicht überdefiniert werden.
+			var predefinedLayerParams = {
+				source: new sourceTileWMS(sourceParams)
+			};
+			$.extend(true, layerParams, _layerParams, predefinedLayerParams);
+			
+			//Layer erstellen
+			var layer = new layerTile(layerParams);
+			
+		} else {
+			//Abruf als ein Bild = dynamisch
+			
+			var _zIndex = 40;
+			//anderer zIndex für Stadtmessungsamt-Kartendienste
+			if (jQuery.inArray(url.hostname, _getConfig().wms_hosts) > -1) {
+				_zIndex = 50;
+			}
+			
+			//layerParams
+			var layerParams = {
+				zIndex: _zIndex
+			};
+			
+			//diese Parameter können nicht überdefiniert werden.
+			var predefinedLayerParams = {
+				source: new sourceImageWMS(sourceParams)
+			};
+			$.extend(true, layerParams, _layerParams, predefinedLayerParams);
+			
+			//Layer erstellen
+			var layer = new layerImage(layerParams);
+		}
+		
+		//View konfigurieren, falls diese noch nicht konfiguriert wurde
+		if (map.getView().getProjection().getCode() != projection) {
+			$.extend(true, viewParams, { constrainResolution: true} );
+			map.setView(new View(viewParams));
+		}
+		
+		//Layer hinzufügen
+		map.addLayer(layer);
+		
+		//Callbackfunktion ausführen
+		if (typeof _callbackFunction == "function") {
+			_callbackFunction(layer);
+		}
+	}
+	
 	//	@description	fügt einen EsriLayer hinzu. (gecacht)
 	//
 	//	@argument		_url {String}
@@ -238,7 +450,7 @@ var stma_openlayers = /** @class */ (function () {
 		var sourceParams = {
 			minZoom: '0'
 		};
-	  
+		
 		//ToDo: XYZ-Dienst vorsehen? Anderer Server + Instanz?
 		//diese Parameter können nicht überdefiniert werden.
 		var predefinedSourceParams = {
@@ -263,7 +475,7 @@ var stma_openlayers = /** @class */ (function () {
 		var layerParams = {
 			zIndex: _zIndex
 		};
-	  
+		
 		//diese Parameter können nicht überdefiniert werden.
 		var predefinedLayerParams = {
 			source: new sourceXYZ(sourceParams)
@@ -310,7 +522,7 @@ var stma_openlayers = /** @class */ (function () {
 		var sourceParams = {
 			params: {layers: 'show:0'}
 		};
-	  
+		
 		//diese Parameter können nicht überdefiniert werden.
 		var predefinedSourceParams = {
 			ratio: 1,
@@ -330,7 +542,7 @@ var stma_openlayers = /** @class */ (function () {
 		var layerParams = {
 			zIndex: _zIndex //damit liegen die dynamischen Dienste über den gecachten Diensten (wenn nicht überkonfiguriert wird)
 		};
-	  
+		
 		//diese Parameter können nicht überdefiniert werden.
 		var predefinedLayerParams = {
 			source: new sourceImageArcGISRest(sourceParams)
@@ -427,7 +639,7 @@ var stma_openlayers = /** @class */ (function () {
 				}
 			})
 		};
-	  
+		
 		//diese Parameter können nicht überdefiniert werden.
 		//Sie dürfen nicht geändert werden, da es sonst ggf. zu Problemen bei der Darstellung der Stadtmessungsamt-Kartendienste kommen kann.
 		var predefinedMapParams = {
@@ -485,7 +697,7 @@ var stma_openlayers = /** @class */ (function () {
 	 *	@description	fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) hinzu.<br/>
 	 *					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
 	 *					<ul>
-	 *					<li>10:	gecacht</li>
+	 *					<li>10: gecacht</li>
 	 *					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>
 	 *					<li>40: dynamisch</li>
 	 *					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
@@ -524,11 +736,114 @@ var stma_openlayers = /** @class */ (function () {
 	}
 	
 	/**
+	 *	@method			addWMTSLayer
+	 *	@description	fügt einen gecachten WMTS-Kartendienst hinzu.<br/>
+	 *					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
+	 *					<ul>
+	 *					<li>10: gecacht</li>
+	 *					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>
+	 *					<li>40: dynamisch</li>
+	 *					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
+	 *					</ul>
+	 *					Beispiel:<br/>
+	 *					<code>mymap.addWMTSLayer("https://SERVERNAME/INSTANZ/gwc/service/wmts?REQUEST=GetCapabilities", "LAYERNAME");</code>
+	 *
+	 *	@argument		_url {String} GetCapabilities-URL zum WMTS
+	 *					Kartendienste des Stadtmessungsamtes sollten über die Funktion addStmaWMTSLayer hinzugefügt werden.
+	 *
+	 *	@argument		_layerName {String} Layername
+	 *					Name des Layers, der eingebunden werden soll
+	 *
+	 *	@argument		_layerParams {object}
+	 *					zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.5.0/apidoc/module-ol_layer_Layer-Layer.html}
+	 *
+	 *	@argument		_sourceParams {object}
+	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.5.0/apidoc/module-ol_source_Source-Source.html}
+	 *
+	 *	@argument		_callbackFunction {function}
+	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.<br/>
+	 *					Der Funktion wird das jeweilige Layerobjekt übergeben.
+	 *
+	 *	@returns		{null} -
+	 *
+	 *	@since			v2.1
+	 */
+	stma_openlayers.prototype.addWMTSLayer = function(_url, _layerName, _layerParams, _sourceParams, _callbackFunction) {
+		var _self = this;
+		
+		var url = new URL(_url);
+		if (jQuery.inArray(url.hostname, _getConfig().wmts_hosts) > -1) {
+			console.error("WMTS-Kartendienste des Stadtmessungsamtes über die Methode addStmaWMTSLayer hinzufügen");
+		} else {
+			_addWMTSLayer(_url, _layerName, _layerParams, _sourceParams, _callbackFunction);
+		}
+	}
+	
+	/**
+	 *	@method			addWMSLayer
+	 *	@description	fügt einen dynamischen WMS-Kartendienst hinzu.<br/>
+	 *					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
+	 *					<ul>
+	 *					<li>10: gecacht</li>
+	 *					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>
+	 *					<li>40: dynamisch</li>
+	 *					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
+	 *					</ul>
+	 *					Beispiel:<br/>
+	 *					<code>mymap.addWMSLayer("https://SERVERNAME/INSTANZ/gwc/service/wms", "LAYERNAME");</code>
+	 *					<br/><br/>
+	 *					Der Layer kann gekachelt oder als ganzes Bild abgerufen werden. Standard ist der Abruf als ganzes Bild,
+	 *					da aber einige WMS-Dienste keine großen Bilder auf einmal zurückgeben können, kann der WMS auch gekachelt
+	 *					abgerufen werden. Dies kann zu Lasten der Kartographie gehen - so kann es passieren, dass Beschriftungen
+	 *					abgeschnitten oder mehrfach im Kartenbild enthalten sind.<br/>
+	 *					Standardmäßig wird der WMS-Dienst als dynamischer Dienst behandelt, wenn der als gekachelter Dienst eingebunden wird,
+	 *					wird er als gecachter Dienst behandelt (wichtig für die zIndexe der Kartendienste)
+	 *					Zum gekachelten Abruf muss als _sourceParams <code>{ "TILED": true }</code> übergeben werden.<br/>
+	 *					Beispiel:<br/>
+	 *					<code>mymap.addWMSLayer("https://SERVERNAME/INSTANZ/gwc/service/wms", "LAYERNAME", {}, { "TILED": true });</code>
+	 *
+	 *
+	 *	@argument		_url {String} URL zum WMS
+	 *					Kartendienste des Stadtmessungsamtes sollten über die Funktion addStmaWMSLayer hinzugefügt werden.
+	 *
+	 *	@argument		_layerName {String} Layername
+	 *					Name des Layers, der eingebunden werden soll
+	 *
+	 *	@argument		_layerParams {object}
+	 *					zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.5.0/apidoc/module-ol_layer_Layer-Layer.html}
+	 *
+	 *	@argument		_sourceParams {object}
+	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.5.0/apidoc/module-ol_source_Source-Source.html}
+	 *
+	 *	@argument		_callbackFunction {function}
+	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.<br/>
+	 *					Der Funktion wird das jeweilige Layerobjekt übergeben.
+	 *
+	 *	@returns		{null} -
+	 *
+	 *	@since			v2.1
+	 */
+	stma_openlayers.prototype.addWMSLayer = function(_url, _layerName, _layerParams, _sourceParams, _callbackFunction) {
+		var _self = this;
+		
+		var url = new URL(_url);
+		if (jQuery.inArray(url.hostname, _getConfig().wms_hosts) > -1) {
+			console.error("WMS-Kartendienste des Stadtmessungsamtes über die Methode addStmaWMSLayer hinzufügen");
+		} else {
+			_addWMSLayer(_url, _layerName, _layerParams, _sourceParams, _callbackFunction);
+		}
+	}
+	
+	/**
 	 *	@method			addStmaEsriLayer
 	 *	@description	fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) des Stadtmessungsamtes hinzu.<br/>
 	 *					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
 	 *					<ul>
-	 *					<li>10:	gecacht</li>
+	 *					<li>10: gecacht</li>
 	 *					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>
 	 *					<li>40: dynamisch</li>
 	 *					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
@@ -563,11 +878,114 @@ var stma_openlayers = /** @class */ (function () {
 	}
 	
 	/**
+	 *	@method			addStmaWMTSLayer
+	 *	@description	fügt einen gecachten WMTS-Kartendienst des Stadtmessungsamtes hinzu.<br/>
+	 *					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
+	 *					<ul>
+	 *					<li>10: gecacht</li>
+	 *					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>
+	 *					<li>40: dynamisch</li>
+	 *					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
+	 *					</ul>
+	 *					Beispiel:<br/>
+	 *					<code>mymap.addStmaWMTSLayer("LAYERNAME");</code>
+	 *
+	 *	@argument		_layerName {String} Layername
+	 *					Name des Layers, der eingebunden werden soll
+	 *
+	 *	@argument		_layerParams {object}
+	 *					zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.5.0/apidoc/module-ol_layer_Layer-Layer.html}
+	 *
+	 *	@argument		_sourceParams {object}
+	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.5.0/apidoc/module-ol_source_Source-Source.html}
+	 *
+	 *	@argument		_callbackFunction {function}
+	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.<br/>
+	 *					Der Funktion wird das jeweilige Layerobjekt übergeben.
+	 *
+	 *	@returns		{null} -
+	 *
+	 *	@since			v2.1
+	 */
+	stma_openlayers.prototype.addStmaWMTSLayer = function(_layerName, _layerParams, _sourceParams, _callbackFunction) {
+		var _self = this;
+		
+		//Matrix definieren - das was hier angegeben wird, kann nicht vom Nutzer überdefiniert werden.
+		if (_sourceParams == null) {
+			_sourceParams = {};
+		}
+		var _predefinedSourceParams = {
+			matrixSet: _getConfig().wmts_matrix
+		}
+		$.extend(true, _sourceParams, _predefinedSourceParams);
+		_addWMTSLayer("https://" + _getConfig().wmts_host + "/" + _getConfig().wmts_instance + "/gwc/service/wmts?REQUEST=GetCapabilities", _layerName, _layerParams, _sourceParams, _callbackFunction);
+	}
+	
+	/**
+	 *	@method			addStmaWMSLayer
+	 *	@description	fügt einen dynamischen WMS-Kartendienst des Stadtmessungsamtes hinzu.<br/>
+	 *					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
+	 *					<ul>
+	 *					<li>10: gecacht</li>
+	 *					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>
+	 *					<li>40: dynamisch</li>
+	 *					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
+	 *					</ul>
+	 *					Beispiel:<br/>
+	 *					<code>mymap.addStmaWMSLayer("LAYERNAME");</code>
+	 *					<br/><br/>
+	 *					Der Layer kann gekachelt oder als ganzes Bild abgerufen werden. Standard ist der Abruf als ganzes Bild,
+	 *					da aber einige WMS-Dienste keine großen Bilder auf einmal zurückgeben können, kann der WMS auch gekachelt
+	 *					abgerufen werden. Dies kann zu Lasten der Kartographie gehen - so kann es passieren, dass Beschriftungen
+	 *					abgeschnitten oder mehrfach im Kartenbild enthalten sind.<br/>
+	 *					Standardmäßig wird der WMS-Dienst als dynamischer Dienst behandelt, wenn der als gekachelter Dienst eingebunden wird,
+	 *					wird er als gecachter Dienst behandelt (wichtig für die zIndexe der Kartendienste)
+	 *					Zum gekachelten Abruf muss als _sourceParams <code>{ "TILED": true }</code> übergeben werden.<br/>
+	 *					Beispiel:<br/>
+	 *					<code>mymap.addStmaWMSLayer("LAYERNAME", {}, { "TILED": true });</code>
+	 *
+	 *	@argument		_layerName {String} Layername
+	 *					Name des Layers, der eingebunden werden soll
+	 *
+	 *	@argument		_layerParams {object}
+	 *					zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.5.0/apidoc/module-ol_layer_Layer-Layer.html}
+	 *
+	 *	@argument		_sourceParams {object}
+	 *					zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>
+	 *					Siehe {@link https://openlayers.org/en/v6.5.0/apidoc/module-ol_source_Source-Source.html}
+	 *
+	 *	@argument		_callbackFunction {function}
+	 *					Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.<br/>
+	 *					Der Funktion wird das jeweilige Layerobjekt übergeben.
+	 *
+	 *	@returns		{null} -
+	 *
+	 *	@since			v2.1
+	 */
+	stma_openlayers.prototype.addStmaWMSLayer = function(_layerName, _layerParams, _sourceParams, _callbackFunction) {
+		var _self = this;
+		
+		//Tiled definieren - das was hier angegeben wird, kann nicht vom Nutzer überdefiniert werden.
+		if (_sourceParams == null) {
+			_sourceParams = {};
+		}
+		var _predefinedSourceParams = {
+			TILED: _getConfig().wms_tiled
+		}
+		$.extend(true, _sourceParams, _predefinedSourceParams);
+		
+		_addWMSLayer("https://" + _getConfig().wms_host + "/" + _getConfig().wms_instance, _layerName, _layerParams, _sourceParams, _callbackFunction);
+	}
+	
+	/**
 	 *	@method			addStmaBaseLayer
 	 *	@description	fügt einen Basis-Kartendienst (dynamisch / gecacht) des Stadtmessungsamtes hinzu.<br/>
 	 *					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
 	 *					<ul>
-	 *					<li>10:	gecacht</li>
+	 *					<li>10: gecacht</li>
 	 *					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>
 	 *					<li>40: dynamisch</li>
 	 *					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
@@ -602,8 +1020,40 @@ var stma_openlayers = /** @class */ (function () {
 	stma_openlayers.prototype.addStmaBaseLayer = function(_mapname, _layerParams, _sourceParams, _callbackFunction) {
 		var _self = this;
 		
-		if (_getConfig().ags_services[_mapname] != null) {
+		if (_getConfig().ags_services != null && _getConfig().ags_services[_mapname] != null) {
 			_addEsriLayer("https://" + _getConfig().ags_services[_mapname].ags_host + "/" + _getConfig().ags_services[_mapname].ags_instance + "/rest/services/" + _getConfig().ags_services[_mapname].ags_service + "/MapServer", _layerParams, _sourceParams, _callbackFunction);
+		} else
+		if (_getConfig().wmts_services != null && _getConfig().wmts_services[_mapname] != null) {
+			
+			//GetCapabilities-URL
+			var _urlGetCapabilities = "https://" + _getConfig().wmts_services[_mapname].host + "/" + _getConfig().wmts_services[_mapname].instance + "/gwc/service/wmts?REQUEST=GetCapabilities"
+			
+			//Matrix definieren - das was hier angegeben wird, kann nicht vom Nutzer überdefiniert werden.
+			if (_sourceParams == null) {
+				_sourceParams = {};
+			}
+			var _predefinedSourceParams = {
+				matrixSet: _getConfig().wmts_services[_mapname].matrix
+			}
+			$.extend(true, _sourceParams, _predefinedSourceParams);
+			
+			_addWMTSLayer(_urlGetCapabilities, _getConfig().wmts_services[_mapname].service, _layerParams, _sourceParams, _callbackFunction);
+		} else 
+		if (_getConfig().wms_services != null && _getConfig().wms_services[_mapname] != null) {
+			
+			//URL
+			var _url = "https://" + _getConfig().wms_services[_mapname].host + "/" + _getConfig().wms_services[_mapname].instance
+			
+			//Tiled definieren - das was hier angegeben wird, kann nicht vom Nutzer überdefiniert werden.
+			if (_sourceParams == null) {
+				_sourceParams = {};
+			}
+			var _predefinedSourceParams = {
+				TILED: _getConfig().wms_services[_mapname].tiled
+			}
+			$.extend(true, _sourceParams, _predefinedSourceParams);
+			
+			_addWMSLayer(_url, _getConfig().wms_services[_mapname].service, _layerParams, _sourceParams, _callbackFunction);
 		} else {
 			console.error("Karte '" + _mapname + "' nicht gefunden");
 		}
@@ -850,7 +1300,7 @@ var stma_openlayers = /** @class */ (function () {
 	 *	@description	fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) des Stadtmessungsamtes hinzu.
 	 *					Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
 	 *					<ul>
-	 *					<li>10:	gecacht</li>
+	 *					<li>10: gecacht</li>
 	 *					<li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>
 	 *					<li>40: dynamisch</li>
 	 *					<li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
