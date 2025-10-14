@@ -45,8 +45,6 @@ In Version 3.0 wurden folgende Anpassungen und Erweiterungen vorgenommen:
 - Die "Grundkarte" als `StmaBaseLayer` ist als "deprectaed" markiert worden. In Zukunft soll "Basemap" verwendet werden. 
   _Siehe example_UTM_25832.js_
 
-// @TODO: Neue "Grundkarte" 
-
 
 ## Breaking Changes
 
