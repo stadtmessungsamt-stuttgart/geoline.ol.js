@@ -3,26 +3,41 @@
   "version": "2.1.0",
   "description": "Bibliothek zur einfachen Einbindung von Kartendiensten des Stadtmessungsamtes Stuttgart in OpenLayers",
   "author": "Stadtmessungsamt, LHS Stuttgart",
-  "main": "dist/geoline.ol.js/geoline.ol.js",
-  "style": "dist/geoline.ol.js/geoline.ol.css",
-  "targets": {
-    "geoline.ol.js": {
-		"distDir": "dist/geoline.ol.js"
-	},
-    "examples": {
-		"distDir": "dist/examples"
-	}
-  },
+  "type": "module",
+  "files": [
+    "dist",
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "main": "dist/geoline.ol.js",
+  "types": "dist/geoline.ol.d.ts",
+  "style": "dist/geoline.ol.css",
   "dependencies": {
-    "jquery": ">=1.9.0",
-    "ol": "^6.3.1",
+    "core-js": "^3.45.1",
+    "jsonp": "^0.2.1",
+    "ol": "^10.6.1",
     "proj4": "^2.7.0"
   },
   "devDependencies": {
+    "@stadtmessungsamt-stuttgart/geoline.ol.js": "file:./",
+    "concurrently": "^9.1.2",
+    "copy-webpack-plugin": "^12.0.2",
+    "cors-anywhere": "^0.4.4",
     "cross-var": "^1.1.0",
-    "jsdoc": "^3.6.6",
-    "parcel": "^2.0.0-beta.1",
-    "replace": "^1.2.0"
+    "css-loader": "^7.1.2",
+    "css-minimizer-webpack-plugin": "^7.0.2",
+    "cypress": "^15.2.0",
+    "gh-pages": "^6.3.0",
+    "mini-css-extract-plugin": "^2.9.4",
+    "replace": "^1.2.2",
+    "style-loader": "^4.0.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.9.2",
+    "wait-on": "^8.0.4",
+    "webpack": "^5.94.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.0.4"
   },
   "repository": {
     "type": "git",
@@ -30,12 +45,14 @@
   },
   "license": "CC-BY-NC-SA-4.0",
   "scripts": {
-    "start": "parcel examples/example.html examples/testdata/**/*",
     "audit": "npm audit --only=prod",
-    "build-js": "parcel build src/geoline.ol.js --target geoline.ol.js --no-scope-hoist --no-cache && cross-var replace '@version@' $npm_package_version dist/geoline.ol.js/geoline.ol.js && cross-var replace '@version@' $npm_package_version dist/geoline.ol.js/geoline.ol.js",
-	"build-css": "parcel build src/geoline.ol.css --target geoline.ol.js --no-scope-hoist --no-cache",
-	"build-examples": "parcel build examples/example*.html --no-scope-hoist --no-cache --public-url '.' --target examples && cross-var replace '@version@' $npm_package_version dist/examples/example.html",	
-    "build-doc": "jsdoc -c jssdocconfig.json && cross-var replace '>Home</h1>' '>Version $npm_package_version</h1>' dist/doc/index.html",
-    "build": "npm run build-js && npm run build-css && npm run build-examples && npm run build-doc"
+    "build-dist": "webpack --config webpack.dist.config.cjs --mode production",
+    "build-dev": "webpack --config webpack.dist.config.cjs --watch",
+    "build-examples": "npm run build-dist && webpack --config webpack.examples.config.cjs",
+    "serve-examples": "wait-on demo && webpack serve --config webpack.examples.config.cjs --port 8080 --open",
+    "deploy-gh-pages": "npm run build-examples && gh-pages --dist demo",
+    "cypress-open": "concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress open\"",
+    "cypress-run": "concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress run --browser chrome\"",
+    "start-dev": "concurrently \"npm run build-dev\" \"webpack --config webpack.examples.config.cjs --watch\" \"npm run serve-examples\""
   }
 }
