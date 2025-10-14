@@ -130,7 +130,7 @@ Empfohlener Ablauf:
    - Version in `package.json` anheben
    - `npm run build-dist` ausführen
    - Änderungen commiten
-   - Tag erstellen (Als Tag-Namen das Schema `vX.Y.Z` passend zur `package.json` verwenden.
+   - Tag erstellen (Als Tag-Namen das Schema `X.Y.Z` passend zur `package.json` verwenden.
 3. Änderungen pushen
    - `git push`
    - `git push --tags`
