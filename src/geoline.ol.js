@@ -78,6 +78,7 @@ import jsonp from "jsonp";
  * @typedef {Object} AGSServiceEntry
  * @property {string} ags_host
  * @property {string} ags_instance
+ * @property {string} ags_service
  * @property {string} service
  * @property {boolean} [tiled]
  * @property {Object.<string, string|number|boolean>} [params]
@@ -105,6 +106,7 @@ import jsonp from "jsonp";
  * @typedef {Object} GeolineConfig
  * @property {string} [ags_host]
  * @property {string} [ags_instance]
+ * @property {string} [ags_service]
  * @property {string} [wmts_host]
  * @property {string} [wmts_instance]
  * @property {string} [wmts_matrix]
@@ -136,7 +138,7 @@ class StmaOpenLayers {
 
     /**
      * Konstruktor
-     * 
+     *
      * @param       {string} _configUrl Basis-URL für den Abruf der Geoline-Basiskonfiguration. Wird als vorbelegter Parameter verwendet.
      *
      * @returns     {StmaOpenLayers}
@@ -358,65 +360,116 @@ class StmaOpenLayers {
      *
      * @since          v2.1
      */
-    _addWMTSLayer_impl(_url, _layerName, _layerParams, _sourceParams, _callbackFunction) {
-        //GetCapabilities abrufen
+    _addWMTSLayer_impl(_url, _layerName, _layerParams = {}, _sourceParams = {}, _callbackFunction = null) {
         const url = new URL(_url);
 
-        this._fetchTextCached(_url, {method: 'POST'})
-            .then(wmtscapabilities => {
-                const _formatWMTSCapabilities = new FormatWMTSCapabilities();
+        this._fetchTextCached(_url, {method: 'GET'})
+            .then(xml => {
+                const fmt = new FormatWMTSCapabilities();
+                const caps = fmt.read(xml);
 
-                //sourceParams
-                let sourceParams = sourceWMTS_optionsFromCapabilities(_formatWMTSCapabilities.read(wmtscapabilities), {
-                    layer: _layerName
+                // Wenn matrixSet in _sourceParams übergeben wurde, nutzt OL das hier direkt.
+                // (z.B. { matrixSet: "EU_EPSG_25832_TOPPLUS" })
+                let sourceParams = sourceWMTS_optionsFromCapabilities(caps, {
+                    layer: _layerName,
+                    matrixSet: _sourceParams?.matrixSet,
+                    style: _sourceParams?.style
                 });
 
-                let _zIndex = 10;
-                let predefinedSourceParams = {};
-                if (((this._getConfig().wmts_hosts) || []).includes(url.hostname)) {
-                    //URL-Parameter überdefinieren, da diese nicht korrekt ermittelt werden können.
-                    predefinedSourceParams.urls = [url.origin + url.pathname + "/rest/" + _layerName + "/{style}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}?format=image/png"];
-                    predefinedSourceParams.requestEncoding = "REST";
-
-                    //Copyrighthinweis
-                    predefinedSourceParams.attributions = "© Stadtmessungsamt, LHS Stuttgart";
-
-                    //anderer zIndex für Stadtmessungsamt-Kartendienste
-                    _zIndex = 20;
+                if (!sourceParams) {
+                    throw new Error('WMTS layer not found in capabilities: ' + _layerName);
                 }
+
+                // sensible Defaults
+                if (!sourceParams.style) sourceParams.style = 'default';
+                if (sourceParams.crossOrigin == null) sourceParams.crossOrigin = 'anonymous';
+                if (sourceParams.wrapX == null) sourceParams.wrapX = true;
+
+                // Layer-/View-Projektion ermitteln
+                const layerProj = sourceParams.projection || getProjection(this.projection);
+                const view = this.map.getView();
+                const viewProj = view?.getProjection?.() || getProjection(this.projection);
+
+                // *** Wichtig: WMTS kann nicht reprojiziert werden → bei Mismatch überspringen ***
+                const sameProj = layerProj?.getCode?.() === viewProj?.getCode?.();
+                if (!sameProj) {
+                    console.error(
+                        "[WMTS] Projection mismatch – map:", viewProj?.getCode?.(),
+                        "layer:", layerProj?.getCode?.(),
+                        "→ WMTS wird übersprungen (kein Reprojection-Support)."
+                    );
+                    if (typeof _callbackFunction === 'function') _callbackFunction(false);
+                    return;
+                }
+
+                // --- origin fix NUR für WebMercatorQuad ---
+                try {
+                    if (sourceParams.matrixSet === 'WebMercatorQuad' && sourceParams.tileGrid) {
+                        const tg = sourceParams.tileGrid;
+                        const resolutions = tg.getResolutions();
+                        const matrixIds = (typeof tg.getMatrixIds === 'function' && tg.getMatrixIds())
+                            ? tg.getMatrixIds()
+                            : resolutions.map((_, z) => String(z));
+
+                        const extent = getProjection('EPSG:3857').getExtent();
+                        const topLeft = [extent[0], extent[3]]; // minX, maxY
+
+                        const tileSize = typeof tg.getTileSize === 'function' ? tg.getTileSize(0) : 256;
+                        const WMTSGridClass = tg.constructor;
+
+                        sourceParams.tileGrid = new WMTSGridClass({
+                            origin: topLeft,
+                            resolutions,
+                            matrixIds,
+                            tileSize
+                        });
+                    }
+                } catch (e) {
+                    console.warn('[WMTS] Origin correction skipped:', e);
+                }
+
+                // STMA-spezifisch (REST-Template, Attribution, zIndex)
+                let zIndex = 10;
+                const predefined = {};
+                if (((this._getConfig().wmts_hosts) || []).includes(url.hostname)) {
+                    predefined.urls = [
+                        url.origin + url.pathname +
+                        "/rest/" + _layerName + "/{style}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}?format=image/png"
+                    ];
+                    predefined.requestEncoding = 'REST';
+                    predefined.attributions = '© Stadtmessungsamt, LHS Stuttgart';
+                    zIndex = 20;
+                }
+
+                // finale Source-Parameter (User-Params zuletzt, aber Projektion unverändert lassen)
                 sourceParams = {
                     ...sourceParams,
+                    ...predefined,
                     ..._sourceParams,
-                    ...predefinedSourceParams
+                    projection: layerProj
                 };
 
-                //layerParams
-                let layerParams = {
-                    zIndex: _zIndex
-                };
-
-                //diese Parameter können nicht überdefiniert werden.
-                let predefinedLayerParams = {
-                    source: new SourceWMTS(sourceParams)
-                };
-                layerParams = {
-                    ...layerParams,
+                // Layer bauen
+                const layer = new LayerTile({
+                    zIndex,
                     ..._layerParams,
-                    ...predefinedLayerParams
-                };
+                    source: new SourceWMTS(sourceParams)
+                });
 
-                //gecachten Layer erstellen
-                let layer = new LayerTile(layerParams);
+                // View NICHT auf andere Projektion umstellen – nur Resolutions anpassen
+                const resolutions = sourceParams.tileGrid.getResolutions();
+                const center = view.getCenter() ?? this.viewParams?.center;
+                const zoom = view.getZoom() ?? this.viewParams?.zoom;
 
-                //View konfigurieren, falls diese noch nicht konfiguriert wurde
-                if (this.map.getView().getProjection().getCode() !== this.projection) {
-                    this.map.setView(new View({
-                        ...this.viewParams,
-                        ...{resolutions: sourceParams.tileGrid.getResolutions(), constrainResolution: true}
-                    }));
-                }
+                this.map.setView(new View({
+                    ...this.viewParams,
+                    center,
+                    zoom,
+                    projection: viewProj,           // unverändert lassen
+                    resolutions,
+                    constrainResolution: true
+                }));
 
-                //Layer hinzufügen
                 this.map.addLayer(layer);
 
                 //Callbackfunktion ausführen
@@ -424,9 +477,7 @@ class StmaOpenLayers {
                     _callbackFunction(layer);
                 }
             })
-            .catch(error => {
-                console.error("Fehler beim Abrufen der WMTS-GetCapabilities", error);
-            });
+            .catch(err => console.error('Fehler beim Abrufen der WMTS-GetCapabilities', err));
     }
 
     /**
@@ -757,48 +808,45 @@ class StmaOpenLayers {
      *    @since        v0.0
      */
     initMap(_epsgCode, _mapParams = {}, _viewParams = {}, _customParams = {}, _callbackFunction = null) {
-        //(25832)UTM-Projektion zu den Projektionen von OpenLayers hinzufügen
+        // (25832) UTM-Projektion registrieren
         proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
         register(proj4);
 
-        //(31467)GK-Projektion zu den Projektionen von OpenLayers hinzufügen
+        // (31467) GK-Projektion registrieren (falls benötigt)
         proj4.defs("EPSG:31467", "+proj=tmerc +lat_0=0 +lon_0=9 +k=1 +x_0=3500000 +y_0=0 +ellps=bessel +towgs84=598.1,73.7,418.2,0.202,0.045,-2.455,6.7 +units=m +no_defs");
         register(proj4);
 
-        //Projektion definieren
+        // Karten-Projektion festlegen (NICHT später überschreiben)
         this.projection = "EPSG:" + _epsgCode;
         if (getProjection(this.projection) == null) {
             console.error("Projektion " + this.projection + " nicht gefunden. Es kann zu falscher Darstellung der Karte kommen");
         }
 
-        //zusätzliche Parameter für geoline.ol.js hinzufügen
-        if (_customParams != null && _customParams.tileLoadFunction != null) {
+        // Custom-Parameter übernehmen
+        if (_customParams?.tileLoadFunction) {
             this.tileLoadFunction = _customParams.tileLoadFunction;
         }
-        if (_customParams != null && _customParams.config != null) {
-            console.warn("Konfiguration wurde manuell gesetzt und wird nicht vom Server des Stadtmessungamtes geladen. Bitte stellen Sie sicher, dass die Konfiguration immer aktuell ist.");
+        if (_customParams?.config) {
+            console.warn("Konfiguration wurde manuell gesetzt und wird nicht vom Server des Stadtmessungsamtes geladen. Bitte stellen Sie sicher, dass die Konfiguration immer aktuell ist.");
             this.config = _customParams.config;
         } else {
-            // Konfiguration frühzeitig laden (asynchron), um spätere Aufrufe zu beschleunigen
+            // Config frühzeitig (asynchron) laden
             this._fetchConfig().catch(() => {
             });
         }
 
-        //Karte initialisieren
+        // Map-Parameter zusammenbauen
         let mapParams = {
             target: "map",
             controls: defaultControls({
                 attribution: false
             })
         };
-
-        //diese Parameter können nicht überdefiniert werden.
-        //Sie dürfen nicht geändert werden, da es sonst ggf. zu Problemen bei der Darstellung der Stadtmessungsamt-Kartendienste kommen kann.
-        let predefinedMapParams = {
+        const predefinedMapParams = {
             logo: false,
-            pixelRatio: 1, //wichtige Einstellung für unsere Kartendienste!
+            pixelRatio: 1,                 // wichtige Einstellung für unsere Kartendienste
             loadTilesWhileAnimating: true, //Kacheln während des Zoomens nachladen
-            loadTilesWhileInteracting: true //Kacheln während des Panens nachladen
+            loadTilesWhileInteracting: true
         };
         mapParams = {
             ...mapParams,
@@ -806,17 +854,15 @@ class StmaOpenLayers {
             ...predefinedMapParams
         };
 
-        //Sicherstellen, dass der Attribution-Control vorhanden ist.
-        //Dieser muss vorhanden sein, wenn Karten von ESRI genutzt werden.
+        // Attribution-Control sicherstellen (z. B. für Esri-Dienste)
         if (mapParams.controls != null) {
-            let _attributionControlAvailable = false;
-            mapParams.controls.forEach(function (_control) {
+            let hasAttribution = false;
+            mapParams.controls.forEach((_control) => {
                 if (_control instanceof ControlAttribution) {
-                    _attributionControlAvailable = true;
+                    hasAttribution = true;
                 }
             });
-            if (_attributionControlAvailable === false) {
-                //Attribution-Control hinzufügen
+            if (!hasAttribution) {
                 mapParams.controls.push(new ControlAttribution({
                     tipLabel: "Copyright",
                     collapsible: true
@@ -824,25 +870,27 @@ class StmaOpenLayers {
             }
         }
 
-        //View definieren
+        // View-Parameter aufbauen (mit deiner gewünschten Projektion)
         this.viewParams = {
-            ...{
-                center: [513785, 5402232], // Stuttgart
-                zoom: 2
-            },
+            center: [513785, 5402232], // Default Stuttgart
+            zoom: 2,
             ..._viewParams,
-            ...{
-                projection: getProjection(this.projection)
-            }
+            projection: getProjection(this.projection)
         };
 
-        //Karte definieren
+        // >>> WICHTIG: View direkt an die Map geben (verhindert OL-Default EPSG:3857)
+        mapParams.view = new View(this.viewParams);
+
+        // Map erzeugen
         this.map = new Map(mapParams);
 
-        //Rechtsklick auf der Karte unterbinden
-        document.querySelector(".ol-viewport").addEventListener("contextmenu", function (e) {
-            e.preventDefault();
-        });
+        // Kontextmenü (Rechtsklick) auf der Karte unterbinden
+        const vp = document.querySelector(".ol-viewport");
+        if (vp) {
+            vp.addEventListener("contextmenu", function (e) {
+                e.preventDefault();
+            });
+        }
 
         //Nach dem Start die Größe der Karte automatisch bestimmen
         this.map.updateSize();
@@ -891,6 +939,7 @@ class StmaOpenLayers {
         }
     }
 
+    // noinspection JSUnusedGlobalSymbols
     /**
      *    @description    fügt einen gecachten WMTS-Kartendienst hinzu.<br/>
      *                    Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
@@ -984,6 +1033,7 @@ class StmaOpenLayers {
         }
     }
 
+    // noinspection JSUnusedGlobalSymbols
     /**
      *    @description    fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) des Stadtmessungsamtes hinzu.<br/>
      *                    Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
@@ -1172,32 +1222,27 @@ class StmaOpenLayers {
         this._fetchConfig()
             .then(() => {
                 const config = this._getConfig();
-                if (config.ags_services != null && config.ags_services[_mapname] != null) {
-                    this._addEsriLayer("https://" + config.ags_services[_mapname].ags_host + "/" + config.ags_services[_mapname].ags_instance + "/rest/services/" + config.ags_services[_mapname].ags_service + "/MapServer", _layerParams, _sourceParams, _callbackFunction);
-                } else if (config.wmts_services != null && config.wmts_services[_mapname] != null) {
-                    //GetCapabilities-URL
-                    const _urlGetCapabilities = "https://" + config.wmts_services[_mapname].host + "/" + config.wmts_services[_mapname].instance + "/gwc/service/wmts?REQUEST=GetCapabilities";
-                    //Matrix definieren - das was hier angegeben wird, kann nicht vom Nutzer überdefiniert werden.
-                    if (_sourceParams == null) {
-                        _sourceParams = {};
-                    }
-                    _sourceParams = {
+                const ags = config?.ags_services?.[_mapname] ?? null;
+                const wmts = config?.wmts_services?.[_mapname] ?? null;
+                const wms = config?.wms_services?.[_mapname] ?? null;
+
+                if (ags) {
+                    const finalUrl = `https://${ags.ags_host}/${ags.ags_instance}/rest/services/${ags.ags_service}/MapServer`;
+                    this._addEsriLayer(finalUrl, _layerParams, _sourceParams, _callbackFunction);
+                } else if (wmts) {
+                    const finalUrl = `https://${wmts.host}/${wmts.instance}/gwc/service/wmts?REQUEST=GetCapabilities`;
+                    const sourceParams = {
                         ..._sourceParams,
-                        ...{matrixSet: config.wmts_services[_mapname].matrix}
+                        matrixSet: wmts.matrix
                     };
-                    this._addWMTSLayer_impl(_urlGetCapabilities, config.wmts_services[_mapname].service, _layerParams, _sourceParams, _callbackFunction);
-                } else if (config.wms_services != null && config.wms_services[_mapname] != null) {
-                    //URL
-                    const _url = "https://" + config.wms_services[_mapname].host + "/" + config.wms_services[_mapname].instance;
-                    //Tiled definieren - das was hier angegeben wird, kann nicht vom Nutzer überdefiniert werden.
-                    if (_sourceParams == null) {
-                        _sourceParams = {};
-                    }
-                    _sourceParams = {
+                    this._addWMTSLayer_impl(finalUrl, wmts.service, _layerParams, sourceParams, _callbackFunction);
+                } else if (wms) {
+                    const finalUrl = `https://${wms.host}/${wms.instance}`;
+                    const sourceParams = {
                         ..._sourceParams,
-                        ...{TILED: config.wms_services[_mapname].tiled}
+                        TILED: wms.tiled
                     };
-                    this._addWMSLayer(_url, config.wms_services[_mapname].service, _layerParams, _sourceParams, _callbackFunction);
+                    this._addWMSLayer(finalUrl, wms.service, _layerParams, sourceParams, _callbackFunction);
                 } else {
                     console.error("Karte '" + _mapname + "' nicht gefunden");
                 }
@@ -1391,6 +1436,7 @@ class StmaOpenLayers {
                 // Element für Overlay definieren
                 this.map.getTargetElement().insertAdjacentHTML('beforeend', '<div id="geoline_ol_js_popup"></div>');
             }
+            /** @type {HTMLDivElement} */
             const _overlayDIV = this.map.getTargetElement().querySelector("#geoline_ol_js_popup");
 
             this.overlayLayer = new Overlay({
@@ -1439,6 +1485,7 @@ class StmaOpenLayers {
         }
     }
 
+    // noinspection JSUnusedGlobalSymbols
     /**
      *    @description    fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) des Stadtmessungsamtes hinzu.
      *                    Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
@@ -1550,6 +1597,7 @@ class StmaOpenLayers {
         return this.map;
     }
 
+    // noinspection JSUnusedGlobalSymbols
     /**
      *    @description    Gibt die interne Konfiguration von geoline.ol.js zurück.<br/>
      *                    Diese Funktion sollte nur sparsam genutzt werden, zum Beispiel zum Ermitteln der Konfiguration für die Offlineverfügbarkeit in Apps.
@@ -1564,5 +1612,8 @@ class StmaOpenLayers {
 
 }
 
-// Default Export für moderne ES6 Imports
+/*
+ * Default Export für moderne ES6 Imports
+ */
+// noinspection JSUnusedGlobalSymbols
 export default StmaOpenLayers;

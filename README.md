@@ -42,6 +42,10 @@ In Version 3.0 wurden folgende Anpassungen und Erweiterungen vorgenommen:
 - ES Module (ESM) als Standard: Das Paket ist ESM-only (package.json: "type": "module").
 - TypeScript-Typdefinitionen: Bereitstellung von Deklarationsdateien (dist/geoline.ol.d.ts) für bessere Entwickler-Experience.
 - Separates CSS-Bundle: Styles liegen in dist/geoline.ol.css und sind zusätzlich über das Feld "style" im Paket referenziert.
+- Die "Grundkarte" als `StmaBaseLayer` ist als "deprectaed" markiert worden. In Zukunft soll "Basemap" verwendet werden. 
+  _Siehe example_UTM_25832.js_
+
+// @TODO: Neue "Grundkarte" 
 
 
 ## Breaking Changes

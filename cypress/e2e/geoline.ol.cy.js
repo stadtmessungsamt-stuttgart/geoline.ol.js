@@ -34,13 +34,16 @@ describe('Lade alle Beispiele und prüfe sie', () => {
     it('Beispiel: example_UTM_25832.html', () => {
 
         cy.intercept('https://gis5.stuttgart.de/geoline/geoline.config/config.aspx').as('loadConfig');
-        cy.intercept('https://gis5.stuttgart.de/arcgis/rest/services/1_Base/Stadtkarte_Internet_c_EPSG25832/MapServer/tile/**').as('loadMapTiles');
+        // cy.intercept('https://gis5.stuttgart.de/arcgis/rest/services/1_Base/Stadtkarte_Internet_c_EPSG25832/MapServer/tile/**').as('loadMapTiles');
+        cy.intercept('https://geoserver.stuttgart.de/geoserver/gwc/service/wmts?REQUEST=GetCapabilities**').as('loadWmtsCapabilities');
+        cy.intercept('https://geoserver.stuttgart.de/geoserver/gwc/service/wmts/rest/Base:Basemap_EPSG25832/default/Stuttgart_UTM_CRS_oL/**').as('loadMapTiles');
 
         // Beispiel aufrufen
         cy.visit('/example_UTM_25832.html');
 
         // warten bis die Karte initiaisliert ist
         cy.wait('@loadConfig');
+        cy.wait('@loadWmtsCapabilities', {timeout: 30000});
         cy.wait('@loadMapTiles', {timeout: 30000});
 
         // Prüfe, ob die gewünschte Konsolenausgabe erfolgt ist

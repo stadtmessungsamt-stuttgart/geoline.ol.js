@@ -38,6 +38,7 @@ export type AGSInfo = {
 export type AGSServiceEntry = {
     ags_host: string;
     ags_instance: string;
+    ags_service: string;
     service: string;
     tiled?: boolean;
     params?: {
@@ -65,6 +66,7 @@ export type WMSServiceEntry = {
 export type GeolineConfig = {
     ags_host?: string;
     ags_instance?: string;
+    ags_service?: string;
     wmts_host?: string;
     wmts_instance?: string;
     wmts_matrix?: string;
@@ -123,6 +125,7 @@ export type GeolineConfig = {
  * @typedef {Object} AGSServiceEntry
  * @property {string} ags_host
  * @property {string} ags_instance
+ * @property {string} ags_service
  * @property {string} service
  * @property {boolean} [tiled]
  * @property {Object.<string, string|number|boolean>} [params]
@@ -147,6 +150,7 @@ export type GeolineConfig = {
  * @typedef {Object} GeolineConfig
  * @property {string} [ags_host]
  * @property {string} [ags_instance]
+ * @property {string} [ags_service]
  * @property {string} [wmts_host]
  * @property {string} [wmts_instance]
  * @property {string} [wmts_matrix]
@@ -239,7 +243,7 @@ declare class StmaOpenLayers {
      *
      * @since          v2.1
      */
-    _addWMTSLayer_impl(_url: string, _layerName: string, _layerParams: object, _sourceParams: object, _callbackFunction: Function): void;
+    _addWMTSLayer_impl(_url: string, _layerName: string, _layerParams?: object, _sourceParams?: object, _callbackFunction?: Function): void;
     /**
      * @description     fügt einen dynamischen WMS-Kartendienst hinzu.
      *                  Der Layer kann gekachelt oder als ganzes Bild abgerufen werden. Standard ist der Abruf als ganzes Bild,
