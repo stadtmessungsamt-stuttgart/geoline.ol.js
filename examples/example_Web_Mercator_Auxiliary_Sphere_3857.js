@@ -7,7 +7,7 @@ import Zoom from 'ol/control/Zoom.js';
 const mymap = new StmaOpenLayers();
 mymap.initMap(3857, {}, {
 	center: [1021708, 6237140],
-	zoom: 13
+	zoom: 12
 });
 
 mymap.addStmaBaseLayer("Basemap");
