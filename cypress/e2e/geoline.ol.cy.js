@@ -47,7 +47,7 @@ describe('Lade alle Beispiele und prüfe sie', () => {
         cy.wait('@loadMapTiles', {timeout: 30000});
 
         // Prüfe, ob die gewünschte Konsolenausgabe erfolgt ist
-        const expectedText = 'addStmaBaseLayer (Grundkarte) wurde ausgeführt';
+        const expectedText = 'addStmaBaseLayer (Basemap) wurde ausgeführt';
         cy.wrap(null).then(() => {
             const joined = messages.join('\n');
             // Debug-Ausgabe im Cypress-Log

@@ -16,11 +16,11 @@ mymap.initMap(
 );
 
 mymap.addStmaBaseLayer(
-    "Grundkarte",  // ESRI-Karte (Stand 2025)
+    "Basemap",  // ESRI-Karte (Stand 2025)
     {},
     {},
     function (layer: unknown) {
-        console.log("addStmaBaseLayer (Grundkarte) wurde ausgeführt", layer);
+        console.log("addStmaBaseLayer (Basemap) wurde ausgeführt", layer);
     }
 );
 

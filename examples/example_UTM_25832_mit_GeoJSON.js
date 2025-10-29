@@ -24,7 +24,7 @@ mymap.initMap(
         console.log("initMap wurde ausgeführt");
     }
 );
-mymap.addStmaBaseLayer("Grundkarte");
+mymap.addStmaBaseLayer("Basemap");
 
 //Aussehen definieren
 const _styles = {

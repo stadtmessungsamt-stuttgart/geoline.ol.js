@@ -1195,7 +1195,7 @@ class StmaOpenLayers {
      *                    </ul>
      *                    Beispiel:<br/>
      *                    <code>
-     *                        mymap.addStmaBaseLayer("Grundkarte");<br/>
+     *                        mymap.addStmaBaseLayer("Basemap");<br/>
      *                        mymap.addStmaBaseLayer("Luftbild");
      *                    </code>
      *
