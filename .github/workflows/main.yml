@@ -34,38 +34,10 @@ jobs:
         env:
           CI: true
 
-  publish:
-    name: Publish to npm
-    if: github.event_name == 'release'
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build package
-        run: |
-          npm run build-dist
-
-      - name: Publish package to npm
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
   deploy_pages:
     name: Deploy GitHub Pages
     if: github.event_name == 'release'
-    needs: publish
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -90,6 +62,7 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
 
       - name: Build and deploy to GitHub Pages
         run: npm run deploy-gh-pages
