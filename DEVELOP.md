@@ -62,20 +62,6 @@ Voraussetzungen:
 - Docker installiert und lauffähig
 - Der aktuelle Projektordner wird als Volume eingebunden; Änderungen an den Beispielen erfordern ggf. ein erneutes `npm run examples` im Container-Lauf (das Script erledigt das automatisch pro Start).
 
-## Optional: CORS-Proxy für externe Dienste
-Ein einfacher CORS-Proxy ist enthalten, um Entwicklungszugriffe auf externe Dienste zu erleichtern (nur lokal verwenden!).  
-
-Starten:
-```
-node cors-proxy.cjs
-```
-Der Proxy lauscht auf `http://localhost:1235`. Ziel-URLs bspw. so präfixen:
-```
-http://localhost:1235/https://geoservice.stuttgart.de/...
-```
-
-Sicherheitshinweis: Der Proxy ist für die lokale Entwicklung gedacht (whitelist leer). Nicht öffentlich betreiben.
-
 ## Cypress-Tests ausführen
 Die Cypress-Tests erwarten, dass die Demo auf Port 8080 läuft und bauen/serven diese automatisch in einem separaten Prozess.
 
@@ -99,7 +85,6 @@ nvm exec 22 npm run cypress-run
 
 ## Ports & Pfade
 - Demo-Server: http://localhost:8080
-- CORS-Proxy (optional): http://localhost:1235
 - Beispiele: `examples/` (Quellcode) → `demo/` (gebündelte Ausgabe)
 
 Troubleshooting:
@@ -107,7 +92,6 @@ Troubleshooting:
 - Leere Beispielseite/nicht geladenes JS: Der Dev Server baut die Beispiele automatisch. Prüfen Sie die Terminalausgabe des Dev Servers auf Fehler.
 
 ## Troubleshooting (weiteres)
-- CORS-Fehler bei externen Diensten: Optionalen CORS-Proxy (`node cors-proxy.cjs`) nutzen oder die Ziel-Server entsprechend konfigurieren.
 - Kaputte Abhängigkeiten: `rm -rf node_modules package-lock.json && npm install` ausführen.
 
 ## Nützliche Ordner
@@ -124,7 +108,7 @@ Empfohlener Ablauf:
 1. Lokal testen und bauen
    - Sicherstellen, dass alle Änderungen committet sind und die Beispiele/Tests lokal funktionieren:
      - `npm install`
-     - `npm run examples` (optional zur Sichtprüfung)
+     - `npm run serve-examples` (optional zur Sichtprüfung)
      - `npm run cypress-run` (führt E2E-Tests headless aus)
 2. Version anheben
    - Version in `package.json` anheben

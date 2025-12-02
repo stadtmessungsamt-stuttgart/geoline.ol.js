@@ -23,8 +23,6 @@
     "@stadtmessungsamt-stuttgart/geoline.ol.js": "file:./",
     "concurrently": "^9.1.2",
     "copy-webpack-plugin": "^13.0.1",
-    "cors-anywhere": "^0.4.4",
-    "cross-var": "^1.1.0",
     "css-loader": "^7.1.2",
     "css-minimizer-webpack-plugin": "^7.0.2",
     "cypress": "^15.2.0",
