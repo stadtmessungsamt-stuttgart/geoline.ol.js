@@ -14,7 +14,7 @@ mymap.addStmaBaseLayer(
     {},
     {},
     function (layer) {
-        console.log("addStmaBaseLayer (Grundkarte) wurde ausgeführt", layer);
+        console.log("addStmaBaseLayer (Basemap) wurde ausgeführt", layer);
     }
 );
 

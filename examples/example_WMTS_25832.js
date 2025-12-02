@@ -5,7 +5,7 @@ const mymap = new StmaOpenLayers();
 mymap.initMap(
     25832,
     {target: "the-map"},
-    {zoom: 6},
+    {zoom: 6, center: [513044, 5403167]},
     {},
     function (map) {
         console.log("initMap wurde ausgeführt");

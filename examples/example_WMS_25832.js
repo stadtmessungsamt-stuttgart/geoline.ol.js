@@ -8,8 +8,8 @@ mymap.initMap(
         target: "the-map"
     },
     {
-        center: [513422, 5403039], // somewhere inside Stuttgart in EPSG:25832
-        zoom: 14
+        center: [513044, 5403167], // somewhere inside Stuttgart in EPSG:25832
+        zoom: 16
     },
     {},
     function () {

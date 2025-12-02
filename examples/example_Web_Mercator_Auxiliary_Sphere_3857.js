@@ -10,7 +10,7 @@ mymap.initMap(3857, {}, {
 	zoom: 13
 });
 
-mymap.addStmaBaseLayer("Grundkarte");
+mymap.addStmaBaseLayer("Basemap");
 mymap.addEsriLayer("https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer");
 
 const mousePosition = new MousePosition({

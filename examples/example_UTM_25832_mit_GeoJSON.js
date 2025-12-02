@@ -16,7 +16,7 @@ mymap.initMap(
     {},
     {
         zoom: 5,
-        center: [ 509286.82, 5404853 ],
+        center: [ 509000, 5404400 ],
     },
     {},
     {},
@@ -24,7 +24,7 @@ mymap.initMap(
         console.log("initMap wurde ausgeführt");
     }
 );
-mymap.addStmaBaseLayer("Grundkarte");
+mymap.addStmaBaseLayer("Basemap");
 
 //Aussehen definieren
 const _styles = {
