@@ -1,0 +1,14 @@
+{
+  // Verbrauchertest: prüft das TS-Beispiel gegen die ausgelieferten Typen in dist wie ein externes Projekt
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    // Bewusst aus: Fehler in dist/*.d.ts sollen auffallen
+    "skipLibCheck": false
+  },
+  "files": ["example_UTM_25832_TS.ts", "css.d.ts"]
+}

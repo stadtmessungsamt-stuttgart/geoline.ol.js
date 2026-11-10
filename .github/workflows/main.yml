@@ -35,6 +35,13 @@ jobs:
       - name: Security audit (npm)
         run: npm run audit
 
+      - name: Lint (oxlint, TSDoc-Pflicht für öffentliche Exporte)
+        run: npm run lint
+
+      - name: Typecheck TS example as consumer (tsc, without skipLibCheck)
+        # Builds dist and checks the shipped .d.ts the way an external TypeScript project uses them
+        run: npm run typecheck-examples
+
       - name: Run Cypress tests
         # This script builds the example app, starts a web server and runs Cypress in Chrome
         run: npm run cypress-run

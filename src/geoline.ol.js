@@ -2,8 +2,6 @@
  * @module StmaOpenLayers
  */
 
-import './geoline.ol.css';
-
 import Feature from "ol/Feature.js";
 import Map from "ol/Map.js";
 import Overlay from "ol/Overlay.js";
@@ -332,7 +330,7 @@ class StmaOpenLayers {
 
     /**
      * JSONP with simple Promise cache to avoid duplicate network requests per URL
-     * @param {string} url
+     * @param {string} url URL des Dienstes, dient auch als Cache-Schlüssel
      * @returns {Promise<any>}
      */
     _jsonpCached(url) {
@@ -353,8 +351,8 @@ class StmaOpenLayers {
 
     /**
      * Fetch text with simple Promise cache by URL (POST by default)
-     * @param {string} url
-     * @param {RequestInit} [options]
+     * @param {string} url URL des Dienstes, dient auch als Cache-Schlüssel
+     * @param {RequestInit} [options] Optionen für fetch
      * @returns {Promise<string>}
      */
     _fetchTextCached(url, options = {method: 'POST'}) {
@@ -375,7 +373,7 @@ class StmaOpenLayers {
     /**
      * Get a cached GeoJSON format instance for a specific dataProjection.
      * The instance is created with featureProjection set to the current map projection.
-     * @param {string} dataProjection
+     * @param {string} dataProjection Projektion der GeoJSON-Daten, z. B. EPSG:4326
      */
     _getGeoJSONFormat(dataProjection) {
         const key = dataProjection + '->' + this.projection;

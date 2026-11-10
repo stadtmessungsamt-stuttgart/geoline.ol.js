@@ -31,7 +31,9 @@ module.exports = {
         maxAssetSize: 512000,      // 500 KiB statt 244 KiB
     },
     entry: {
-        'geoline.ol': path.resolve(__dirname, 'src/geoline.ol.js'),
+        // CSS als eigener Eintrag statt Import im Einstieg: TypeScript übernähme den Import sonst in die .d.ts (TS2882 bei Verbrauchern).
+        // Reihenfolge ist Pflicht: Die Bibliothek exportiert, was das letzte Modul des Arrays exportiert.
+        'geoline.ol': [path.resolve(__dirname, 'src/geoline.ol.css'), path.resolve(__dirname, 'src/geoline.ol.js')],
     },
     output: {
         path: path.resolve(__dirname, 'dist'),
@@ -43,10 +45,18 @@ module.exports = {
         }
     },
     resolve: {
-        extensions: ['.js', '.css'],
+        extensions: ['.ts', '.js', '.css'],
+        // TS-Module werden mit Endung .js importiert, damit die erzeugten .d.ts auch unter moduleResolution nodenext auflösbar sind
+        extensionAlias: {'.js': ['.ts', '.js']},
     },
     module: {
         rules: [
+            {
+                test: /\.ts$/i,
+                // Nur Transpilieren; Typprüfung und .d.ts übernimmt tsc
+                loader: 'esbuild-loader',
+                options: {loader: 'ts', target: 'es2020'},
+            },
             {
                 test: /\.css$/i,
                 use: [
