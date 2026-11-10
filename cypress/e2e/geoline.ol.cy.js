@@ -97,16 +97,19 @@ describe('Lade alle Beispiele und prüfe sie', () => {
     it('Beispiel: example_Web_Mercator_Auxiliary_Sphere_3857.html', () => {
 
         cy.intercept('https://gis5.stuttgart.de/geoline/geoline.config/config.aspx').as('loadConfig');
-        cy.intercept('https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer**').as('loadLayer');
-        cy.intercept('https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer/tile/**').as('loadMapTiles');
+        cy.intercept({hostname: 'gis5.stuttgart.de', pathname: '/arcgis/rest/services/1_Base/Stadtkarte_Internet_c_EPSG3857/MapServer', query: {f: 'json'}}).as('loadLayer');
+        cy.intercept('https://gis5.stuttgart.de/arcgis/rest/services/1_Base/Stadtkarte_Internet_c_EPSG3857/MapServer/tile/**').as('loadMapTiles');
 
         // Beispiel aufrufen
         cy.visit('/example_Web_Mercator_Auxiliary_Sphere_3857.html');
 
         // warten bis die Karte initiaisliert ist
         cy.wait('@loadConfig');
-        cy.wait('@loadLayer', {timeout: 30000});
-        cy.wait('@loadMapTiles', {timeout: 30000});
+        cy.wait('@loadLayer', {timeout: 30000}).its('response.statusCode').should('eq', 200);
+        cy.wait('@loadMapTiles', {timeout: 30000}).then(({response}) => {
+            expect(response.statusCode).to.eq(200);
+            expect(response.headers['content-type']).to.match(/^image\//);
+        });
 
         // Koordinaten-Widget
         cy.get('.ol-mouse-position').should('be.visible');
@@ -119,7 +122,7 @@ describe('Lade alle Beispiele und prüfe sie', () => {
 
         cy.intercept('https://gis5.stuttgart.de/geoline/geoline.config/config.aspx').as('loadConfig');
         cy.intercept('https://geoserver.stuttgart.de/geoserver/gwc/service/wmts**').as('loadLayer');
-        cy.intercept('https://geoserver.stuttgart.de/geoserver/gwc/service/wmts/rest/Base:A62_Luftbild_2021_EPSG25832/**').as('loadMapTiles');
+        cy.intercept('https://geoserver.stuttgart.de/geoserver/gwc/service/wmts/rest/Base:A62_Luftbild_aktuell_EPSG25832/**').as('loadMapTiles');
 
         // Beispiel aufrufen
         cy.visit('/example_WMTS_25832.html');
@@ -174,6 +177,38 @@ describe('Lade alle Beispiele und prüfe sie', () => {
             // Debug-Ausgabe im Cypress-Log
             cy.log('Console messages collected:', joined);
             expect(joined, 'Konsole enthält erwartete Meldung').to.include(expectedText);
+        });
+    });
+
+
+    it('Beispiel: example_ArcGIS_25832.html', () => {
+
+        const ags = 'https://gis5.stuttgart.de/arcgis/rest/services/1_Base/';
+        const metadata = (service) => ({hostname: 'gis5.stuttgart.de', pathname: '/arcgis/rest/services/1_Base/' + service + '/MapServer', query: {f: 'json'}});
+        cy.intercept('https://gis5.stuttgart.de/geoline/geoline.config/config.aspx').as('loadConfig');
+        cy.intercept(metadata('Stadtkarte_Internet_c_EPSG25832')).as('loadStadtkarte');
+        cy.intercept(ags + 'Stadtkarte_Internet_c_EPSG25832/MapServer/tile/**').as('loadStadtkarteTiles');
+        cy.intercept(metadata('Luftbilder_aktuell_c_EPSG25832')).as('loadLuftbild');
+        cy.intercept(ags + 'Luftbilder_aktuell_c_EPSG25832/MapServer/tile/**').as('loadLuftbildTiles');
+
+        cy.visit('/example_ArcGIS_25832.html');
+
+        cy.wait('@loadConfig');
+        ['@loadStadtkarte', '@loadLuftbild'].forEach((alias) => {
+            cy.wait(alias, {timeout: 30000}).its('response.statusCode').should('eq', 200);
+        });
+        ['@loadStadtkarteTiles', '@loadLuftbildTiles'].forEach((alias) => {
+            cy.wait(alias, {timeout: 30000}).then(({response}) => {
+                expect(response.statusCode, alias).to.eq(200);
+                expect(response.headers['content-type'], alias).to.match(/^image\//);
+            });
+        });
+
+        // Die Callbacks laufen erst, nachdem geoline den Layer zur Karte hinzugefügt hat
+        cy.wrap(null).should(() => {
+            const joined = messages.join('\n');
+            expect(joined, 'Konsole enthält erwartete Meldung').to.include('STMA Stadtkarte OK');
+            expect(joined, 'Konsole enthält erwartete Meldung').to.include('STMA Luftbild OK');
         });
     });
 });

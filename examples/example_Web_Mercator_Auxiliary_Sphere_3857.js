@@ -11,7 +11,7 @@ mymap.initMap(3857, {}, {
 });
 
 mymap.addStmaBaseLayer("Basemap");
-mymap.addEsriLayer("https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer");
+mymap.addStmaEsriLayer("1_Base/Stadtkarte_Internet_c_EPSG3857");
 
 const mousePosition = new MousePosition({
 	coordinateFormat: function(coordinate) {

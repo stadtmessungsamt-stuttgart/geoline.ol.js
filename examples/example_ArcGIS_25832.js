@@ -1,0 +1,27 @@
+import StmaOpenLayers from "@stadtmessungsamt-stuttgart/geoline.ol.js/dist/geoline.ol.js";
+import "@stadtmessungsamt-stuttgart/geoline.ol.js/src/geoline.ol.css";
+
+const mymap = new StmaOpenLayers();
+mymap.initMap(
+    25832,
+    {target: "the-map"},
+    {zoom: 6, center: [513044, 5403167]},
+    {},
+    () => console.log("initMap wurde ausgeführt")
+);
+
+// ArcGIS-Dienste des Stadtmessungsamtes über den Dienstpfad
+mymap.addStmaEsriLayer(
+    "1_Base/Stadtkarte_Internet_c_EPSG25832",
+    {},
+    {},
+    (layer) => console.log("STMA Stadtkarte OK", layer)
+);
+
+// Luftbild halbtransparent über der Stadtkarte
+mymap.addStmaEsriLayer(
+    "1_Base/Luftbilder_aktuell_c_EPSG25832",
+    {opacity: 0.5},
+    {},
+    (layer) => console.log("STMA Luftbild OK", layer)
+);

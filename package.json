@@ -51,6 +51,7 @@
     "deploy-gh-pages": "npm run build-examples && gh-pages --dist demo",
     "cypress-open": "concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress open\"",
     "cypress-run": "concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress run --browser chrome\"",
+    "cypress-api": "npm run build-dist && cypress run --config-file cypress.api.config.js --browser chrome",
     "start-dev": "concurrently \"npm run build-dev\" \"webpack --config webpack.examples.config.cjs --watch\" \"npm run serve-examples\""
   }
 }

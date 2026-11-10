@@ -13,7 +13,7 @@ mymap.initMap(
 );
 
 mymap.addStmaWMTSLayer(
-    "Base:A62_Luftbild_2021_EPSG25832",
+    "Base:A62_Luftbild_aktuell_EPSG25832",
     {},
     {},
     (layer) => console.log("STMA WMTS OK", layer)

@@ -7,6 +7,13 @@ on:
   pull_request:
   release:
     types: [published]
+  # Wöchentlicher Lauf (montags) gegen die Dienste von stuttgart.de, damit Serveränderungen auch ohne Commit auffallen
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -31,6 +38,12 @@ jobs:
       - name: Run Cypress tests
         # This script builds the example app, starts a web server and runs Cypress in Chrome
         run: npm run cypress-run
+        env:
+          CI: true
+
+      - name: Run API tests (Cypress)
+        # Builds dist and tests the public API without example pages or dev server
+        run: npm run cypress-api
         env:
           CI: true
 
