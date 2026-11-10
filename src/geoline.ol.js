@@ -10,7 +10,6 @@ import Overlay from "ol/Overlay.js";
 import TileGrid from "ol/tilegrid/TileGrid.js";
 import View from "ol/View.js";
 import ControlAttribution from "ol/control/Attribution.js";
-import FormatEsriJSON from "ol/format/EsriJSON.js";
 import FormatGeoJSON from "ol/format/GeoJSON.js";
 import FormatWMTSCapabilities from "ol/format/WMTSCapabilities.js";
 import GeomPoint from "ol/geom/Point.js";
@@ -26,8 +25,6 @@ import SourceWMTS, {optionsFromCapabilities as sourceWMTS_optionsFromCapabilitie
 import StyleIcon from "ol/style/Icon.js";
 import StyleStyle from "ol/style/Style.js";
 import {defaults as defaultControls} from 'ol/control.js';
-import {tile as tileLoadingStrategy} from 'ol/loadingstrategy.js';
-import {createXYZ} from 'ol/tilegrid.js';
 import {get as getProjection} from "ol/proj.js";
 import {register} from 'ol/proj/proj4.js';
 
@@ -1482,107 +1479,6 @@ class StmaOpenLayers {
         if (!this.overlayLayers.includes(_layer)) {
             this.overlayLayers.push(_layer);
             this.overlayFunctions[this.overlayLayers.indexOf(_layer)] = _overlayFunction;
-        }
-    }
-
-    // noinspection JSUnusedGlobalSymbols
-    /**
-     *    @description    fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) des Stadtmessungsamtes hinzu.
-     *                    Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
-     *                    <ul>
-     *                    <li>10: gecacht</li>
-     *                    <li>20: gecacht - Kartendienst des Stadtmessungsamtes</li>
-     *                    <li>40: dynamisch</li>
-     *                    <li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
-     *                    </ul>
-     *
-     *                    Beispiel:<br/>
-     *                    <code>mymap.addStmaEsriFeatureLayer("1_Base/Stadtkarte_Internet_c");</code>
-     *
-     *    @param          {String} _mapservice Bezeichnung des Kartendienstes
-     *                    Wenn die URL des Kartendienstes beispielsweise https://SERVER/ArcGIS/rest/services/ORDNER/KARTENDIENST/MapServer heißt,
-     *                    so sollte ORDNER/KARTENDIENST angegeben werden.
-     *
-     *    @param          {integer} _layerId LayerId im Kartendienst
-     *                    Wenn die URL des Kartendienstes beispielsweise https://SERVER/ArcGIS/rest/services/ORDNER/KARTENDIENST/MapServer/LAYERID heißt,
-     *                    so sollte LAYERID angegeben werden.
-     *
-     *    @param          {function} _styleFunction
-     *                    Funktion, wie die Objekte aussehen sollen. Der Funktion wird als 1. Parameter das feature-Objekt (ol.Feature) übergeben.
-     *                    Mit Hilfe von z.B. feature.get('activeprod') könnte dann der Inhalt des Attributes 'activeprod' abgerufen werden und in Abhängigkeit
-     *                    von ihm unterschiedliche Stile angegeben werden.
-     *                    Rückgabe der Funktion muss ein ol.style.Style-Objekt sein.<br/>
-     *
-     *    @param          {function} _callbackFunction
-     *                    Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
-     *                    Der Funktion wird das jeweilige Layerobjekt übergeben.
-     *
-     *    @returns        {null}
-     *
-     *    @since          v0.86
-     */
-    addStmaEsriFeatureLayer(_mapservice, _layerId, _styleFunction = null, _callbackFunction = null) {
-        const _epsgCode = this.projection.replace("EPSG:", "");
-
-        const vectorSource = new SourceVector({
-            loader: function (_extent, _resolution, _projection) {
-                let self = this;
-                self._fetchConfig()
-                    .then(() => {
-                        const _url = "https://" + self._getConfig().ags_host + "/" + self._getConfig().ags_instance + "/rest/services/" + _mapservice + "/MapServer/" + _layerId + "/query/";
-                        const _urlParams = {
-                            "f": "json",
-                            "returnGeometry": true,
-                            "spatialRel": "esriSpatialRelIntersects",
-                            "geometry": encodeURIComponent('{"xmin":' + _extent[0] + ',"ymin":' + _extent[1] + ',"xmax":' + _extent[2] + ',"ymax":' + _extent[3] + ',"spatialReference":{"wkid":' + _epsgCode + '}}'),
-                            "geometryType": "esriGeometryEnvelope",
-                            "inSR": _epsgCode,
-                            "outFields": "*",
-                            "outSR": _epsgCode
-                        };
-                        // Create URL with parameters
-                        const queryString = new URLSearchParams(_urlParams).toString();
-                        const fullUrl = _url + '?' + queryString;
-                        // Use the jsonp module that's already imported in the file
-                        const jsonp = require('jsonp');
-                        jsonp(fullUrl, null, (err, _response) => {
-                            if (err) {
-                                console.error("Error fetching JSONP data:", err);
-                                return;
-                            }
-                            if (_response.error) {
-                                alert(_response.error.message + '\n' + _response.error.details.join('\n'));
-                            } else {
-                                const _esrijsonFormat = new FormatEsriJSON()
-                                const features = _esrijsonFormat.readFeatures(_response, {
-                                    featureProjection: _projection
-                                });
-                                if (features.length > 0) {
-                                    vectorSource.addFeatures(features);
-                                }
-                            }
-                        });
-                    })
-                    .catch(err => {
-                        console.error("Konfiguration (geoline.config) konnte nicht geladen werden – FeatureLoader übersprungen", err);
-                    });
-            },
-            strategy: tileLoadingStrategy(createXYZ({
-                tileSize: 512
-            }))
-        });
-
-        const vectorLayer = new LayerVector({
-            zIndex: 60,
-            source: vectorSource,
-            style: _styleFunction
-        });
-
-        this.map.addLayer(vectorLayer);
-
-        //Callbackfunktion ausführen
-        if (typeof _callbackFunction == "function") {
-            _callbackFunction(vectorLayer);
         }
     }
 
