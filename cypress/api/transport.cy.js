@@ -1,7 +1,8 @@
 // Abruf von Dienstinformationen per fetch: Fehler als Result, Cache je Karte, Abbruch mit dispose().
 import StmaOpenLayers from '../../dist/geoline.ol.js';
 
-const CONFIG_URL = 'https://gis5.stuttgart.de/geoline/geoline.config/config.aspx';
+import {CONFIG, CONFIG_URL} from './fixtures/config.js';
+
 const ESRI_URL = 'https://ags.extern.test/arcgis/rest/services/Test/MapServer';
 const ESRI_INFO = {hostname: 'ags.extern.test', pathname: '/arcgis/rest/services/Test/MapServer', query: {f: 'json'}};
 
@@ -17,7 +18,7 @@ describe('Abruf von Dienstinformationen', () => {
     let geoline;
 
     beforeEach(() => {
-        cy.intercept('POST', CONFIG_URL, {body: {ags_services: [], wmts_services: [], wms_services: []}});
+        cy.intercept('POST', CONFIG_URL, {body: CONFIG});
         // Kartenbilder des dynamischen Dienstes nicht wirklich abrufen
         cy.intercept({hostname: 'ags.extern.test', pathname: /\/export$/}, {statusCode: 204});
         target = document.createElement('div');

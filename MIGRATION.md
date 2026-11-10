@@ -132,6 +132,18 @@ Der neue Name ist Absicht: Würde `getConfig()` eine Promise liefern, läse best
 
 Eine manuell gesetzte Konfiguration bleibt über `initMap(…, {config})` möglich.
 
+### Die Konfiguration wird geprüft
+
+Antworten des Konfigurationsdienstes und manuell gesetzte Konfigurationen werden vor der Verwendung geprüft:
+
+- Hosts sind reine Hostnamen, optional mit Port, ohne Schema, Zugangsdaten und Pfad. Instanzen und Dienstnamen sind relative Pfade ohne `.` und `..`.
+- Dienste stehen als Objekt mit dem Namen als Schlüssel in `ags_services`, `wmts_services` und `wms_services`. Die Listenform aus den Typen von 3.x wird nicht mehr angenommen.
+- Unbekannte Felder entfallen, darunter die abgeleiteten Listen `ags_hosts`, `wmts_hosts` und `wms_hosts` aus `getConfig()`. Eine in 3.x gespeicherte Konfiguration bleibt damit verwendbar.
+- Eine ungültige Antwort des Dienstes meldet `INVALID_DATA`; es gehen dann keine Requests an die Kartendienste. Eine ungültige manuelle Konfiguration ist ein Programmierfehler: `initMap` wirft einen `TypeError`.
+- Die Konfigurations-URL im Konstruktor muss HTTPS verwenden, HTTP ist nur für `localhost` erlaubt.
+
+Im Konfigurationsabruf sendet geoline.ol.js im Parameter `url` nur noch Origin und Pfad der Seite, ohne Query und Fragment. Für Anwendungen ändert sich dadurch nichts.
+
 ### Lebenszyklus: `dispose()`
 
 Eine Instanz von `StmaOpenLayers` gehört zu genau einer Karte.

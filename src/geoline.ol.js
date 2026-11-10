@@ -30,6 +30,7 @@ import proj4 from "proj4";
 
 import {ok, fail} from './result.js';
 import {RequestCache} from './request-cache.js';
+import {parseConfig, stmaHostnames, serviceEntry, isHostOrSubdomain} from './config.js';
 import {
     assertBoolean,
     assertCoordinateList,
@@ -110,50 +111,8 @@ const DEFAULT_POPUP_ID = 'geoline_ol_js_popup';
  */
 
 /**
- * @typedef {Object} AGSServiceEntry
- * @property {string} ags_host
- * @property {string} ags_instance
- * @property {string} ags_service
- * @property {string} service
- * @property {boolean} [tiled]
- * @property {Object.<string, string|number|boolean>} [params]
- */
-
-/**
- * @typedef {Object} WMTSServiceEntry
- * @property {string} host
- * @property {string} instance
- * @property {string} service
- * @property {string} matrix
- * @property {Object.<string, string|number|boolean>} [params]
- */
-
-/**
- * @typedef {Object} WMSServiceEntry
- * @property {string} host
- * @property {string} instance
- * @property {string} service
- * @property {boolean} [tiled]
- * @property {Object.<string, string|number|boolean>} [params]
- */
-
-/**
- * @typedef {Object} GeolineConfig
- * @property {string} [ags_host]
- * @property {string} [ags_instance]
- * @property {string} [ags_service]
- * @property {string} [wmts_host]
- * @property {string} [wmts_instance]
- * @property {string} [wmts_matrix]
- * @property {string} [wms_host]
- * @property {string} [wms_instance]
- * @property {boolean} [wms_tiled]
- * @property {Array<string>} [ags_hosts]
- * @property {Array<string>} [wmts_hosts]
- * @property {Array<string>} [wms_hosts]
- * @property {Object.<string, AGSServiceEntry>|Array<AGSServiceEntry>} [ags_services]
- * @property {Object.<string, WMTSServiceEntry>|Array<WMTSServiceEntry>} [wmts_services]
- * @property {Object.<string, WMSServiceEntry>|Array<WMSServiceEntry>} [wms_services]
+ * @typedef {import('./config.js').GeolineConfig} GeolineConfig
+ * @typedef {import('./config.js').ServiceKind} ServiceKind
  */
 
 class StmaOpenLayers {
@@ -188,7 +147,11 @@ class StmaOpenLayers {
      * @throws      {TypeError} wenn `_configUrl` keine absolute URL ist
      */
     constructor(_configUrl = "https://gis5.stuttgart.de/geoline/geoline.config/config.aspx") {
-        assertUrl(_configUrl, '_configUrl', 'StmaOpenLayers');
+        const configUrl = assertUrl(_configUrl, '_configUrl', 'StmaOpenLayers');
+        const local = configUrl.hostname === 'localhost' || configUrl.hostname === '127.0.0.1';
+        if (configUrl.protocol !== 'https:' && !(local && configUrl.protocol === 'http:')) {
+            throw new TypeError("StmaOpenLayers: _configUrl muss HTTPS verwenden (HTTP nur für localhost), erhalten: " + _configUrl + ".");
+        }
         this.configUrl = _configUrl;
     }
 
@@ -225,23 +188,11 @@ class StmaOpenLayers {
     /**
      * Hosts der Kartendienste des Stadtmessungsamtes aus der geladenen Konfiguration, ohne einen Abruf auszulösen.
      *
-     * @param   {'ags_hosts'|'wmts_hosts'|'wms_hosts'} kind Art des Dienstes
+     * @param   {ServiceKind} kind Art des Dienstes
      * @returns {Array<string>}
      */
     _stmaHosts(kind) {
-        return this.config?.[kind] ?? [];
-    }
-
-    /**
-     * Lädt die Konfiguration als Result.
-     *
-     * @returns {Promise<Result<GeolineConfig>>}
-     */
-    _loadConfig() {
-        return this._fetchConfig().then(
-            (config) => ok(config),
-            (err) => fail('CONFIG_UNAVAILABLE', 'Die Konfiguration des Stadtmessungsamtes konnte nicht geladen werden.', err)
-        );
+        return this.config == null ? [] : stmaHostnames(this.config, kind);
     }
 
     /**
@@ -250,36 +201,37 @@ class StmaOpenLayers {
      * Zeitpunkt abhängt. Ist die Konfiguration nicht ladbar, entfällt die Prüfung.
      *
      * @param   {URL} url URL des Dienstes
-     * @param   {'ags_hosts'|'wmts_hosts'|'wms_hosts'} kind Art des Dienstes
+     * @param   {ServiceKind} kind Art des Dienstes
      * @param   {string} method Name der aufgerufenen Methode
      * @param   {string} stmaMethod Name der passenden addStma*-Methode
      * @returns {Promise<void>}
      */
     _rejectStmaHost(url, kind, method, stmaMethod) {
-        return this._fetchConfig().catch(() => undefined).then(() => {
+        return this._loadConfig().then(() => {
             if (this._stmaHosts(kind).includes(url.hostname)) {
                 throw new TypeError(method + ": Kartendienste des Stadtmessungsamtes über die Methode " + stmaMethod + " hinzufügen.");
             }
         });
     }
 
-
     /**
-     * Lädt die Konfiguration asynchron und cached das Ergebnis in einer Promise
+     * Lädt und prüft die Konfiguration einmal je Karte. Gleichzeitige Aufrufe teilen sich den Abruf; nach einem
+     * Fehler startet der nächste Aufruf einen neuen.
      *
-     * @returns     {Promise<GeolineConfig>}
+     * @returns {Promise<Result<GeolineConfig>>}
      */
-    _fetchConfig() {
+    _loadConfig() {
         if (this.config != null) {
-            return Promise.resolve(this.config);
+            return Promise.resolve(ok(this.config));
         }
         if (this.configPromise) {
             return this.configPromise;
         }
+        // Nur Origin und Pfad: Query und Fragment können Daten der Anwendung enthalten
         const params = new URLSearchParams({
             v: "@version@",
             epsg: this.projection,
-            url: typeof location !== 'undefined' ? location.href : ''
+            url: typeof location !== 'undefined' ? location.origin + location.pathname : ''
         }).toString();
         // Abruf gehört zur Karte, die ihn gestartet hat; nach dispose() darf er die nächste Karte nicht verändern.
         const session = this._session;
@@ -288,50 +240,26 @@ class StmaOpenLayers {
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
             body: params,
             signal: session?.controller.signal
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok: ' + response.status);
-                }
-                return response.json();
-            })
-            .then(_data => {
-                _data.ags_hosts = Array.isArray(_data.ags_services)
-                    ? _data.ags_services.map(item => item.ags_host)
-                    : Object.values(_data.ags_services || {}).map(item => item.ags_host);
-                _data.wmts_hosts = Array.isArray(_data.wmts_services)
-                    ? _data.wmts_services.map(item => item.host)
-                    : Object.values(_data.wmts_services || {}).map(item => item.host);
-                _data.wms_hosts = Array.isArray(_data.wms_services)
-                    ? _data.wms_services.map(item => item.host)
-                    : Object.values(_data.wms_services || {}).map(item => item.host);
-                if (session === this._session) {
-                    this.config = _data;
-                }
-                return _data;
-            })
-            .catch(err => {
-                // Fehler weiterreichen, aber Promise für spätere erneute Versuche zurücksetzen
-                if (this.configPromise === promise) {
-                    this.configPromise = null;
-                }
-                throw err;
-            });
+        }).then(
+            (response) => response.ok
+                ? response.json().then(
+                    (data) => parseConfig(data),
+                    (err) => fail('INVALID_DATA', "Die Antwort des Konfigurationsdienstes ist kein gültiges JSON.", err))
+                : fail('CONFIG_UNAVAILABLE', "Der Konfigurationsdienst antwortet mit HTTP " + response.status + "."),
+            (err) => fail('CONFIG_UNAVAILABLE', "Die Konfiguration des Stadtmessungsamtes konnte nicht geladen werden.", err)
+        ).then((result) => {
+            if (session !== this._session) {
+                return this._aborted();
+            }
+            if (result.ok) {
+                this.config = result.value;
+            } else if (this.configPromise === promise) {
+                this.configPromise = null;
+            }
+            return result;
+        });
         this.configPromise = promise;
         return promise;
-    }
-
-    /**
-     * @returns     {GeolineConfig}
-     * */
-    _getConfig() {
-        // Nicht mehr blockieren: Startet den asynchronen Ladevorgang, falls nötig
-        if (this.config == null) {
-            this._fetchConfig().catch(() => {
-            });
-        }
-        // Rückgabe des aktuell bekannten Werts (oder eines Platzhalters, damit Aufrufer nicht crashen)
-        return this.config || {ags_hosts: [], wmts_hosts: [], wms_hosts: []};
     }
 
     /**
@@ -395,14 +323,14 @@ class StmaOpenLayers {
 
                 //Copyright
                 const url = new URL(_url);
-                if (this._stmaHosts('ags_hosts').includes(url.hostname)) {
+                if (this._stmaHosts('ags').includes(url.hostname)) {
                     if (ags_info.copyrightText == null || ags_info.copyrightText.length === 0) {
                         ags_info.copyrightText = "© Stadtmessungsamt, LHS Stuttgart"
                     }
                 }
 
                 //AGS Kartendienst von Esri?
-                if (url.hostname.indexOf("arcgisonline.com") > -1 || url.hostname.indexOf("arcgis.com") > -1) {
+                if (isHostOrSubdomain(url.hostname, "arcgisonline.com") || isHostOrSubdomain(url.hostname, "arcgis.com")) {
                     //Der Copyright-Vermerk muss immer sichtbar sein
                     const _attributionControl = this.map.getControls().getArray().filter(function (_control) {
                         return (_control instanceof ControlAttribution);
@@ -529,7 +457,7 @@ class StmaOpenLayers {
                 // STMA-spezifisch (REST-Template, Attribution, zIndex)
                 let zIndex = 10;
                 const predefined = {};
-                if (this._stmaHosts('wmts_hosts').includes(url.hostname)) {
+                if (this._stmaHosts('wmts').includes(url.hostname)) {
                     predefined.urls = [
                         url.origin + url.pathname +
                         "/rest/" + _layerName + "/{style}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}?format=image/png"
@@ -602,7 +530,7 @@ class StmaOpenLayers {
         };
 
         const url = new URL(_url);
-        if (this._stmaHosts('wms_hosts').includes(url.hostname)) {
+        if (this._stmaHosts('wms').includes(url.hostname)) {
             //Copyrighthinweis
             predefinedSourceParams.attributions = "© Stadtmessungsamt, LHS Stuttgart";
         }
@@ -625,7 +553,7 @@ class StmaOpenLayers {
 
             let _zIndex = 10;
             //anderer zIndex für Stadtmessungsamt-Kartendienste
-            if (this._stmaHosts('wms_hosts').includes(url.hostname)) {
+            if (this._stmaHosts('wms').includes(url.hostname)) {
                 _zIndex = 20;
             }
 
@@ -652,7 +580,7 @@ class StmaOpenLayers {
 
             let _zIndex = 40;
             //anderer zIndex für Stadtmessungsamt-Kartendienste
-            if (this._stmaHosts('wms_hosts').includes(url.hostname)) {
+            if (this._stmaHosts('wms').includes(url.hostname)) {
                 _zIndex = 50;
             }
 
@@ -758,7 +686,7 @@ class StmaOpenLayers {
 
         let _zIndex = 10;
         const url = new URL(_url);
-        if (this._stmaHosts('ags_hosts').includes(url.hostname)) {
+        if (this._stmaHosts('ags').includes(url.hostname)) {
             _zIndex = 20;
         }
 
@@ -821,7 +749,7 @@ class StmaOpenLayers {
         //layerParams
         let _zIndex = 40;
         const url = new URL(_url);
-        if (this._stmaHosts('ags_hosts').includes(url.hostname)) {
+        if (this._stmaHosts('ags').includes(url.hostname)) {
             _zIndex = 50;
         }
 
@@ -903,7 +831,14 @@ class StmaOpenLayers {
         if (customParams.tileLoadFunction != null) {
             assertFunction(customParams.tileLoadFunction, '_customParams.tileLoadFunction', 'initMap');
         }
-        assertOptionalObject(customParams.config, '_customParams.config', 'initMap');
+        let manualConfig = null;
+        if (customParams.config != null) {
+            const parsed = parseConfig(customParams.config);
+            if (!parsed.ok) {
+                throw new TypeError("initMap: _customParams.config ist ungültig. " + parsed.error.message);
+            }
+            manualConfig = parsed.value;
+        }
         const popupId = customParams.popupId ?? DEFAULT_POPUP_ID;
         assertString(popupId, '_customParams.popupId', 'initMap');
         if (document.getElementById(popupId) !== null) {
@@ -931,13 +866,12 @@ class StmaOpenLayers {
         if (customParams.tileLoadFunction) {
             this.tileLoadFunction = customParams.tileLoadFunction;
         }
-        if (customParams.config) {
+        if (manualConfig != null) {
             console.warn("Konfiguration wurde manuell gesetzt und wird nicht vom Server des Stadtmessungsamtes geladen. Bitte stellen Sie sicher, dass die Konfiguration immer aktuell ist.");
-            this.config = customParams.config;
+            this.config = manualConfig;
         } else {
             // Config frühzeitig (asynchron) laden; Fehler erreichen die Aufrufer der Layer-Methoden als Result
-            this._fetchConfig().catch(() => {
-            });
+            void this._loadConfig();
         }
 
         // Map-Parameter zusammenbauen
@@ -1077,7 +1011,7 @@ class StmaOpenLayers {
         const url = assertUrl(_url, '_url', 'addEsriLayer');
         assertOptionalObject(_layerParams, '_layerParams', 'addEsriLayer');
         assertOptionalObject(_sourceParams, '_sourceParams', 'addEsriLayer');
-        return this._rejectStmaHost(url, 'ags_hosts', 'addEsriLayer', 'addStmaEsriLayer').then(() =>
+        return this._rejectStmaHost(url, 'ags', 'addEsriLayer', 'addStmaEsriLayer').then(() =>
             this._isStale(session) ? this._aborted() : this._addEsriLayer(_url, _layerParams, _sourceParams, session));
     }
 
@@ -1119,7 +1053,7 @@ class StmaOpenLayers {
         assertString(_layerName, '_layerName', 'addWMTSLayer');
         assertOptionalObject(_layerParams, '_layerParams', 'addWMTSLayer');
         assertOptionalObject(_sourceParams, '_sourceParams', 'addWMTSLayer');
-        return this._rejectStmaHost(url, 'wmts_hosts', 'addWMTSLayer', 'addStmaWMTSLayer').then(() =>
+        return this._rejectStmaHost(url, 'wmts', 'addWMTSLayer', 'addStmaWMTSLayer').then(() =>
             this._isStale(session) ? this._aborted() : this._addWMTSLayer_impl(_url, _layerName, _layerParams, _sourceParams, session));
     }
 
@@ -1172,7 +1106,7 @@ class StmaOpenLayers {
         assertString(_layerName, '_layerName', 'addWMSLayer');
         assertOptionalObject(_layerParams, '_layerParams', 'addWMSLayer');
         assertOptionalObject(_sourceParams, '_sourceParams', 'addWMSLayer');
-        return this._rejectStmaHost(url, 'wms_hosts', 'addWMSLayer', 'addStmaWMSLayer').then(() =>
+        return this._rejectStmaHost(url, 'wms', 'addWMSLayer', 'addStmaWMSLayer').then(() =>
             this._isStale(session) ? this._aborted() : ok(this._addWMSLayer(_url, _layerName, _layerParams, _sourceParams)));
     }
 
@@ -1370,9 +1304,9 @@ class StmaOpenLayers {
                 return result;
             }
             const config = result.value;
-            const ags = config?.ags_services?.[_mapname] ?? null;
-            const wmts = config?.wmts_services?.[_mapname] ?? null;
-            const wms = config?.wms_services?.[_mapname] ?? null;
+            const ags = serviceEntry(config.ags_services, _mapname);
+            const wmts = serviceEntry(config.wmts_services, _mapname);
+            const wms = serviceEntry(config.wms_services, _mapname);
 
             if (ags) {
                 const finalUrl = `https://${ags.ags_host}/${ags.ags_instance}/rest/services/${ags.ags_service}/MapServer`;
@@ -1663,19 +1597,28 @@ class StmaOpenLayers {
         return this.map;
     }
 
-    // noinspection JSUnusedGlobalSymbols
     /**
-     *    @description    Gibt die interne Konfiguration von geoline.ol.js zurück.<br/>
-     *                    Diese Funktion sollte nur sparsam genutzt werden, zum Beispiel zum Ermitteln der Konfiguration für die Offlineverfügbarkeit in Apps.
+     *    @description    lädt die Konfiguration der Kartendienste des Stadtmessungsamtes, z. B. um sie für die
+     *                    Offline-Nutzung zu speichern und später über <code>initMap(…, {config})</code> zu übergeben.<br/>
+     *                    Liefert nie einen Platzhalter: Die Promise erfüllt sich erst, wenn die Konfiguration geladen ist.
+     *                    Nach einem Fehler startet der nächste Aufruf einen neuen Abruf.<br/>
+     *                    Beispiel:<br/>
+     *                    <code>const r = await mymap.loadConfig();</code>
      *
-     *    @returns        {GeolineConfig}
+     *    @returns        {Promise<Result<GeolineConfig>>} die geprüfte Konfiguration oder ein erwartbarer Fehler:
+     *                    <code>CONFIG_UNAVAILABLE</code>, wenn der Dienst nicht erreichbar ist, <code>INVALID_DATA</code>
+     *                    bei ungültiger Antwort, <code>ABORTED</code> nach dispose()
      *
-     *    @since          v1.0
+     *    @throws         {TypeError} wenn ein Callback übergeben wird
+     *    @throws         {Error} wenn keine Karte initialisiert ist
+     *
+     *    @since          v4.0
      */
-    getConfig() {
-        return this._getConfig();
+    loadConfig() {
+        assertNoCallback(arguments, 0, 'loadConfig');
+        this._requireSession('loadConfig');
+        return this._loadConfig();
     }
-
 }
 
 /*

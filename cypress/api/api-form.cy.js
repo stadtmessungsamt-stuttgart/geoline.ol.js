@@ -1,14 +1,8 @@
 // API-Form nach ADR 5: Programmierfehler werfen, erwartbare Fehler kommen als Result, dispose() bricht ab.
 import StmaOpenLayers from '../../dist/geoline.ol.js';
+import {CONFIG, CONFIG_URL} from './fixtures/config.js';
 
-const CONFIG_URL = 'https://gis5.stuttgart.de/geoline/geoline.config/config.aspx';
 const GEOJSON_URL = 'https://daten.example.test/punkte.geojson';
-
-const CONFIG = {
-    ags_services: [],
-    wmts_services: [],
-    wms_services: [{host: 'wms.stma.test'}],
-};
 
 const GEOJSON = {
     type: 'FeatureCollection',
@@ -201,8 +195,7 @@ describe('API-Form', () => {
 
         it('lehnt ab, wenn die Konfiguration schon geladen ist', () => {
             const geoline = initMap();
-            // Die Antwort wird erst nach cy.wait im Browser verarbeitet
-            cy.wrap(null).should(() => expect(geoline.getConfig().wms_hosts).to.include('wms.stma.test'));
+            cy.then(() => geoline.loadConfig());
             cy.then(() => expectRejected(geoline.addWMSLayer('https://wms.stma.test/wms', 'Layer')));
         });
 
