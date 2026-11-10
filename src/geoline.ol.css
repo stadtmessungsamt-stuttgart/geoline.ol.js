@@ -30,17 +30,17 @@ body {
 }
 
 /* Overlay */
-#geoline_ol_js_popup {
+.geoline-ol-js-popup {
     background-color: #fff;
     border-radius: .2rem;
 	border: 1px solid #D1D1D1;
 }
 
-#geoline_ol_js_popup > div {
+.geoline-ol-js-popup > div {
     padding: 5px;
 }
 
-#geoline_ol_js_popup .header {
+.geoline-ol-js-popup .header {
     border-bottom: unset;
     box-sizing: border-box;
     border-top-right-radius: .2rem;
@@ -49,7 +49,7 @@ body {
     border-bottom: 1px solid #D1D1D1;
 }
 
-#geoline_ol_js_popup .arrow {
+.geoline-ol-js-popup .arrow {
     bottom: calc(-.5rem - 1px);
     position: absolute;
     padding: unset;
@@ -58,8 +58,8 @@ body {
     height: 0.5rem;
 }
 
-#geoline_ol_js_popup .arrow::after,
-#geoline_ol_js_popup .arrow::before {
+.geoline-ol-js-popup .arrow::after,
+.geoline-ol-js-popup .arrow::before {
     position: absolute;
     display: block;
     content: "";
@@ -69,13 +69,13 @@ body {
     border-style: solid;
 }
 
-#geoline_ol_js_popup .arrow::after {
+.geoline-ol-js-popup .arrow::after {
     bottom: 1px;
     border-width: .5rem .5rem 0;
     border-top-color: #fff;
 }
 
-#geoline_ol_js_popup .arrow::before {
+.geoline-ol-js-popup .arrow::before {
     bottom: 0;
     border-width: .5rem .5rem 0;
     border-top-color: #D1D1D1;

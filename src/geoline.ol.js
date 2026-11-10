@@ -31,6 +31,45 @@ import {register} from 'ol/proj/proj4.js';
 import proj4 from "proj4";
 import jsonp from "jsonp";
 
+import {ok, fail} from './result.js';
+import {
+    assertBoolean,
+    assertCoordinateList,
+    assertFunction,
+    assertInteger,
+    assertNoCallback,
+    assertObject,
+    assertOptionalObject,
+    assertOptionalStyle,
+    assertString,
+    assertUrl,
+} from './validate.js';
+
+/**
+ * @typedef {import('./result.js').ErrorCode} ErrorCode
+ * @typedef {import('./result.js').GeolineError} GeolineError
+ */
+
+/**
+ * @template T
+ * @typedef {import('./result.js').Result<T>} Result
+ */
+
+/**
+ * @typedef {import('ol/layer/Layer.js').default} Layer
+ */
+
+/**
+ * Zustand einer initialisierten Karte. Wird bei dispose() verworfen; verspätete Ergebnisse erkennen daran,
+ * dass sie zu einer früheren Karte gehören.
+ *
+ * @typedef {Object} Session
+ * @property {AbortController} controller
+ * @property {Set<ReturnType<typeof setInterval>>} intervals
+ */
+
+const DEFAULT_POPUP_ID = 'geoline_ol_js_popup';
+
 /**
  * @typedef {Object} AGSSpatialReference
  * @property {number} [wkid]
@@ -131,6 +170,10 @@ class StmaOpenLayers {
     overlayLayer = null;
     overlayLayers = []; //Layer, für die das Overlay aktiviert ist.
     overlayFunctions = []; //Funktionen der Layer, für die das Overlay aktiviert ist.
+    overlayClickRegistered = false;
+
+    /** @type {Session|null} */
+    _session = null;
 
 
     /**
@@ -138,11 +181,82 @@ class StmaOpenLayers {
      *
      * @param       {string} _configUrl Basis-URL für den Abruf der Geoline-Basiskonfiguration. Wird als vorbelegter Parameter verwendet.
      *
-     * @returns     {StmaOpenLayers}
+     * @throws      {TypeError} wenn `_configUrl` keine absolute URL ist
      */
     constructor(_configUrl = "https://gis5.stuttgart.de/geoline/geoline.config/config.aspx") {
+        assertUrl(_configUrl, '_configUrl', 'StmaOpenLayers');
         this.configUrl = _configUrl;
-        return this;
+    }
+
+    /**
+     * Liefert die aktive Session oder wirft einen Fehler, wenn keine Karte initialisiert ist.
+     *
+     * @param   {string} method Name der aufgerufenen Methode für die Fehlermeldung
+     * @returns {Session}
+     */
+    _requireSession(method) {
+        if (this._session == null) {
+            throw new Error(method + ": Keine aktive Karte. Zuerst initMap() aufrufen (nach dispose() erneut).");
+        }
+        return this._session;
+    }
+
+    /**
+     * Ergebnis für Vorgänge, deren Karte inzwischen mit dispose() freigegeben wurde.
+     *
+     * @param   {Session} session Session beim Start des Vorgangs
+     * @returns {boolean}
+     */
+    _isStale(session) {
+        return session !== this._session;
+    }
+
+    /**
+     * @returns {Result<never>}
+     */
+    _aborted() {
+        return fail('ABORTED', 'Der Vorgang wurde durch dispose() abgebrochen.');
+    }
+
+    /**
+     * Hosts der Kartendienste des Stadtmessungsamtes aus der geladenen Konfiguration, ohne einen Abruf auszulösen.
+     *
+     * @param   {'ags_hosts'|'wmts_hosts'|'wms_hosts'} kind Art des Dienstes
+     * @returns {Array<string>}
+     */
+    _stmaHosts(kind) {
+        return this.config?.[kind] ?? [];
+    }
+
+    /**
+     * Lädt die Konfiguration als Result.
+     *
+     * @returns {Promise<Result<GeolineConfig>>}
+     */
+    _loadConfig() {
+        return this._fetchConfig().then(
+            (config) => ok(config),
+            (err) => fail('CONFIG_UNAVAILABLE', 'Die Konfiguration des Stadtmessungsamtes konnte nicht geladen werden.', err)
+        );
+    }
+
+    /**
+     * Weist Kartendienste des Stadtmessungsamtes in den generischen Methoden zurück. Die Hosts stehen erst nach dem
+     * Laden der Konfiguration fest; deshalb wird immer erst nach dem Laden geprüft, damit das Verhalten nicht vom
+     * Zeitpunkt abhängt. Ist die Konfiguration nicht ladbar, entfällt die Prüfung.
+     *
+     * @param   {URL} url URL des Dienstes
+     * @param   {'ags_hosts'|'wmts_hosts'|'wms_hosts'} kind Art des Dienstes
+     * @param   {string} method Name der aufgerufenen Methode
+     * @param   {string} stmaMethod Name der passenden addStma*-Methode
+     * @returns {Promise<void>}
+     */
+    _rejectStmaHost(url, kind, method, stmaMethod) {
+        return this._fetchConfig().catch(() => undefined).then(() => {
+            if (this._stmaHosts(kind).includes(url.hostname)) {
+                throw new TypeError(method + ": Kartendienste des Stadtmessungsamtes über die Methode " + stmaMethod + " hinzufügen.");
+            }
+        });
     }
 
 
@@ -163,10 +277,13 @@ class StmaOpenLayers {
             epsg: this.projection,
             url: typeof location !== 'undefined' ? location.href : ''
         }).toString();
-        this.configPromise = fetch(this.configUrl, {
+        // Abruf gehört zur Karte, die ihn gestartet hat; nach dispose() darf er die nächste Karte nicht verändern.
+        const session = this._session;
+        const promise = fetch(this.configUrl, {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: params
+            body: params,
+            signal: session?.controller.signal
         })
             .then(response => {
                 if (!response.ok) {
@@ -184,16 +301,20 @@ class StmaOpenLayers {
                 _data.wms_hosts = Array.isArray(_data.wms_services)
                     ? _data.wms_services.map(item => item.host)
                     : Object.values(_data.wms_services || {}).map(item => item.host);
-                this.config = _data;
-                return this.config;
+                if (session === this._session) {
+                    this.config = _data;
+                }
+                return _data;
             })
             .catch(err => {
-                console.error("Konfiguration (geoline.config) konnte nicht geladen werden", err);
                 // Fehler weiterreichen, aber Promise für spätere erneute Versuche zurücksetzen
-                this.configPromise = null;
+                if (this.configPromise === promise) {
+                    this.configPromise = null;
+                }
                 throw err;
             });
-        return this.configPromise;
+        this.configPromise = promise;
+        return promise;
     }
 
     /**
@@ -239,7 +360,7 @@ class StmaOpenLayers {
     _fetchTextCached(url, options = {method: 'POST'}) {
         const cached = this.map.get(url);
         if (cached) return cached;
-        const p = fetch(url, options).then(r => {
+        const p = fetch(url, {...options, signal: this._session?.controller.signal}).then(r => {
             if (!r.ok) throw new Error('Network response was not ok: ' + r.status);
             return r.text();
         }).catch(err => {
@@ -278,67 +399,64 @@ class StmaOpenLayers {
      *
      * @param       {Object} _sourceParams zusätzliche Parameter für das OpenLayer-Source-Objekt
      *
-     * @param       {Function} _callbackFunction Funktion, die nach dem Hinzufügen des Layers ausgeführt wird
+     * @param       {Session} session Session beim Aufruf
+     *
+     * @returns     {Promise<Result<Layer>>}
      *
      * @since       v0.0
      */
-    _addEsriLayer(_url, _layerParams, _sourceParams, _callbackFunction) {
-        this._jsonpCached(_url + "?f=json")
-            .then((/** @type {AGSInfo} */ ags_info) => {
-                try {
-                    if (ags_info.error !== undefined) {
-                        console.warn("Eigenschaften des Kartendienstes " + _url + " konnten nicht abgerufen werden.", ags_info.error);
-                        return;
-                    }
-
-                    //Copyright
-                    const url = new URL(_url);
-                    if (((this._getConfig().ags_hosts) || []).includes(url.hostname)) {
-                        if (ags_info.copyrightText == null || ags_info.copyrightText.length === 0) {
-                            ags_info.copyrightText = "© Stadtmessungsamt, LHS Stuttgart"
-                        }
-                    }
-
-                    //AGS Kartendienst von Esri?
-                    if (url.hostname.indexOf("arcgisonline.com") > -1 || url.hostname.indexOf("arcgis.com") > -1) {
-                        //Der Copyright-Vermerk muss immer sichtbar sein
-                        const _attributionControl = this.map.getControls().getArray().filter(function (_control) {
-                            return (_control instanceof ControlAttribution);
-                        })[0];
-                        _attributionControl.setCollapsible(false);
-                        _attributionControl.setCollapsed(false);
-                    }
-
-                    //spatialReference korrigieren für 10.0
-                    if (ags_info.currentVersion === 10.05 && ags_info.spatialReference.latestWkid == null) {
-                        switch (ags_info.spatialReference.wkid) {
-                            case 102100:
-                                ags_info.spatialReference.latestWkid = 3857;
-                                break;
-                        }
-                    }
-
-                    //spatialReference überprüfen
-                    if (this.projection !== "EPSG:" + ags_info.spatialReference.wkid && this.projection !== "EPSG:" + ags_info.spatialReference.latestWkid) {
-                        console.warn("Projektion der Karte und des Kartendienstes stimmen nicht überein. Karte: " + this.projection + ", Kartendienst: EPSG:", ags_info.spatialReference.wkid + " / EPSG:" + ags_info.spatialReference.latestWkid, _url);
-                    }
-
-                    //Ist es ein gecachter Dienst?
-                    if (ags_info.singleFusedMapCache === true) {
-                        //-> gecachter Dienst hinzufügen
-                        this._initCachedLayer(_url, _layerParams, _sourceParams, ags_info, _callbackFunction);
-                    } else {
-                        //-> dynamischer Dienst hinzufügen
-                        this._initDynamicLayer(_url, _layerParams, _sourceParams, ags_info, _callbackFunction);
-                    }
-                } catch (e) {
-                    console.error("Fehler beim Initalisieren des Layers " + _url, e);
+    _addEsriLayer(_url, _layerParams, _sourceParams, session) {
+        // Zwei Zweige in then(): Fehler beim Aufbau des Layers sind interne Fehler und bleiben Rejections.
+        return this._jsonpCached(_url + "?f=json").then(
+            (/** @type {AGSInfo} */ ags_info) => {
+                if (this._isStale(session)) {
+                    return this._aborted();
                 }
-            })
-            .catch(err => {
-                console.error("Fehler beim Abrufen der Informationen des AGS-Diensts", err);
-            });
+                if (ags_info.error !== undefined) {
+                    return fail('SERVICE_ERROR', "Der Kartendienst " + _url + " meldet einen Fehler: " + ags_info.error.message, ags_info.error);
+                }
 
+                //Copyright
+                const url = new URL(_url);
+                if (this._stmaHosts('ags_hosts').includes(url.hostname)) {
+                    if (ags_info.copyrightText == null || ags_info.copyrightText.length === 0) {
+                        ags_info.copyrightText = "© Stadtmessungsamt, LHS Stuttgart"
+                    }
+                }
+
+                //AGS Kartendienst von Esri?
+                if (url.hostname.indexOf("arcgisonline.com") > -1 || url.hostname.indexOf("arcgis.com") > -1) {
+                    //Der Copyright-Vermerk muss immer sichtbar sein
+                    const _attributionControl = this.map.getControls().getArray().filter(function (_control) {
+                        return (_control instanceof ControlAttribution);
+                    })[0];
+                    _attributionControl.setCollapsible(false);
+                    _attributionControl.setCollapsed(false);
+                }
+
+                //spatialReference korrigieren für 10.0
+                if (ags_info.currentVersion === 10.05 && ags_info.spatialReference.latestWkid == null) {
+                    switch (ags_info.spatialReference.wkid) {
+                        case 102100:
+                            ags_info.spatialReference.latestWkid = 3857;
+                            break;
+                    }
+                }
+
+                //spatialReference überprüfen
+                if (this.projection !== "EPSG:" + ags_info.spatialReference.wkid && this.projection !== "EPSG:" + ags_info.spatialReference.latestWkid) {
+                    console.warn("Projektion der Karte und des Kartendienstes stimmen nicht überein. Karte: " + this.projection + ", Kartendienst: EPSG:", ags_info.spatialReference.wkid + " / EPSG:" + ags_info.spatialReference.latestWkid, _url);
+                }
+
+                //Ist es ein gecachter Dienst? -> gecachten, sonst dynamischen Dienst hinzufügen
+                return ok(ags_info.singleFusedMapCache === true
+                    ? this._initCachedLayer(_url, _layerParams, _sourceParams, ags_info)
+                    : this._initDynamicLayer(_url, _layerParams, _sourceParams, ags_info));
+            },
+            (err) => this._isStale(session)
+                ? this._aborted()
+                : fail('SERVICE_UNAVAILABLE', "Der Kartendienst " + _url + " ist nicht erreichbar.", err)
+        );
     }
 
     /**
@@ -352,29 +470,38 @@ class StmaOpenLayers {
      *
      * @param          {object} _sourceParams zusätzliche Parameter für das OpenLayer-Source-Objekt
      *
-     * @param          {function} _callbackFunction Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen
-     *                 des Layers ausgeführt wird. Der Funktion wird das jeweilige Layerobjekt übergeben.
+     * @param          {Session} session Session beim Aufruf
+     *
+     * @returns        {Promise<Result<Layer>>}
      *
      * @since          v2.1
      */
-    _addWMTSLayer_impl(_url, _layerName, _layerParams = {}, _sourceParams = {}, _callbackFunction = null) {
+    _addWMTSLayer_impl(_url, _layerName, _layerParams, _sourceParams, session) {
         const url = new URL(_url);
+        _layerParams = _layerParams ?? {};
+        _sourceParams = _sourceParams ?? {};
 
-        this._fetchTextCached(_url, {method: 'GET'})
-            .then(xml => {
-                const fmt = new FormatWMTSCapabilities();
-                const caps = fmt.read(xml);
+        return this._fetchTextCached(_url, {method: 'GET'}).then(
+            (xml) => {
+                if (this._isStale(session)) {
+                    return this._aborted();
+                }
 
-                // Wenn matrixSet in _sourceParams übergeben wurde, nutzt OL das hier direkt.
-                // (z.B. { matrixSet: "EU_EPSG_25832_TOPPLUS" })
-                let sourceParams = sourceWMTS_optionsFromCapabilities(caps, {
-                    layer: _layerName,
-                    matrixSet: _sourceParams?.matrixSet,
-                    style: _sourceParams?.style
-                });
-
+                let sourceParams;
+                try {
+                    const caps = new FormatWMTSCapabilities().read(xml);
+                    // Wenn matrixSet in _sourceParams übergeben wurde, nutzt OL das hier direkt.
+                    // (z.B. { matrixSet: "EU_EPSG_25832_TOPPLUS" })
+                    sourceParams = sourceWMTS_optionsFromCapabilities(caps, {
+                        layer: _layerName,
+                        matrixSet: _sourceParams.matrixSet,
+                        style: _sourceParams.style
+                    });
+                } catch (err) {
+                    return fail('INVALID_DATA', "Die Capabilities von " + _url + " sind ungültig.", err);
+                }
                 if (!sourceParams) {
-                    throw new Error('WMTS layer not found in capabilities: ' + _layerName);
+                    return fail('NOT_FOUND', "Der WMTS-Layer " + _layerName + " ist in den Capabilities von " + _url + " nicht vorhanden.");
                 }
 
                 // sensible Defaults
@@ -390,13 +517,9 @@ class StmaOpenLayers {
                 // *** Wichtig: WMTS kann nicht reprojiziert werden → bei Mismatch überspringen ***
                 const sameProj = layerProj?.getCode?.() === viewProj?.getCode?.();
                 if (!sameProj) {
-                    console.error(
-                        "[WMTS] Projection mismatch – map:", viewProj?.getCode?.(),
-                        "layer:", layerProj?.getCode?.(),
-                        "→ WMTS wird übersprungen (kein Reprojection-Support)."
-                    );
-                    if (typeof _callbackFunction === 'function') _callbackFunction(false);
-                    return;
+                    return fail('PROJECTION_MISMATCH',
+                        "Der WMTS-Layer " + _layerName + " liegt in " + layerProj?.getCode?.() + ", die Karte in " +
+                        viewProj?.getCode?.() + ". WMTS-Kacheln werden nicht reprojiziert.");
                 }
 
                 // --- origin fix NUR für WebMercatorQuad ---
@@ -428,7 +551,7 @@ class StmaOpenLayers {
                 // STMA-spezifisch (REST-Template, Attribution, zIndex)
                 let zIndex = 10;
                 const predefined = {};
-                if (((this._getConfig().wmts_hosts) || []).includes(url.hostname)) {
+                if (this._stmaHosts('wmts_hosts').includes(url.hostname)) {
                     predefined.urls = [
                         url.origin + url.pathname +
                         "/rest/" + _layerName + "/{style}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}?format=image/png"
@@ -468,13 +591,12 @@ class StmaOpenLayers {
                 }));
 
                 this.map.addLayer(layer);
-
-                //Callbackfunktion ausführen
-                if (typeof _callbackFunction == "function") {
-                    _callbackFunction(layer);
-                }
-            })
-            .catch(err => console.error('Fehler beim Abrufen der WMTS-GetCapabilities', err));
+                return ok(layer);
+            },
+            (err) => this._isStale(session)
+                ? this._aborted()
+                : fail('SERVICE_UNAVAILABLE', "Die Capabilities von " + _url + " sind nicht abrufbar.", err)
+        );
     }
 
     /**
@@ -493,14 +615,11 @@ class StmaOpenLayers {
      *
      * @param           {object} _sourceParams zusätzliche Parameter für das OpenLayer-Source-Objekt
      *
-     * @param           {function} _callbackFunction Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
-     *                  Der Funktion wird das jeweilige Layerobjekt übergeben.
-     *
-     * @returns         {void}
+     * @returns         {Layer}
      *
      * @since           v2.1
      */
-    _addWMSLayer(_url, _layerName, _layerParams, _sourceParams, _callbackFunction) {
+    _addWMSLayer(_url, _layerName, _layerParams, _sourceParams) {
 
         //diese Parameter können nicht überdefiniert werden.
         const predefinedSourceParams = {
@@ -508,7 +627,7 @@ class StmaOpenLayers {
         };
 
         const url = new URL(_url);
-        if (((this._getConfig().wms_hosts) || []).includes(url.hostname)) {
+        if (this._stmaHosts('wms_hosts').includes(url.hostname)) {
             //Copyrighthinweis
             predefinedSourceParams.attributions = "© Stadtmessungsamt, LHS Stuttgart";
         }
@@ -531,7 +650,7 @@ class StmaOpenLayers {
 
             let _zIndex = 10;
             //anderer zIndex für Stadtmessungsamt-Kartendienste
-            if (((this._getConfig().wms_hosts) || []).includes(url.hostname)) {
+            if (this._stmaHosts('wms_hosts').includes(url.hostname)) {
                 _zIndex = 20;
             }
 
@@ -558,7 +677,7 @@ class StmaOpenLayers {
 
             let _zIndex = 40;
             //anderer zIndex für Stadtmessungsamt-Kartendienste
-            if (((this._getConfig().wms_hosts) || []).includes(url.hostname)) {
+            if (this._stmaHosts('wms_hosts').includes(url.hostname)) {
                 _zIndex = 50;
             }
 
@@ -591,11 +710,7 @@ class StmaOpenLayers {
 
         //Layer hinzufügen
         this.map.addLayer(layer);
-
-        //Callbackfunktion ausführen
-        if (typeof _callbackFunction == "function") {
-            _callbackFunction(layer);
-        }
+        return layer;
     }
 
     /**
@@ -609,11 +724,11 @@ class StmaOpenLayers {
      *
      * @param       {AGSInfo} ags_info JSON-Objekt mit den Karteneigenschaften (von ../MapServer?f=json)
      *
-     * @param       {Function} _callbackFunction Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird
+     * @returns     {Layer}
      *
      * @since v0.0
      */
-    _initCachedLayer(_url, _layerParams, _sourceParams, ags_info, _callbackFunction) {
+    _initCachedLayer(_url, _layerParams, _sourceParams, ags_info) {
         let resolutions = [];
         ags_info.tileInfo.lods.forEach(function (lod) {
             resolutions.push(lod.resolution);
@@ -668,7 +783,7 @@ class StmaOpenLayers {
 
         let _zIndex = 10;
         const url = new URL(_url);
-        if (((this._getConfig().ags_hosts) || []).includes(url.hostname)) {
+        if (this._stmaHosts('ags_hosts').includes(url.hostname)) {
             _zIndex = 20;
         }
 
@@ -692,11 +807,7 @@ class StmaOpenLayers {
 
         //Layer hinzufügen
         this.map.addLayer(layer);
-
-        //Callbackfunktion ausführen
-        if (typeof _callbackFunction == "function") {
-            _callbackFunction(layer);
-        }
+        return layer;
     }
 
     /**
@@ -710,11 +821,11 @@ class StmaOpenLayers {
      *
      * @param       {AGSInfo} ags_info JSON-Objekt mit den Karteneigenschaften (von ../MapServer?f=json)
      *
-     * @param       {Function} _callbackFunction Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird
+     * @returns     {Layer}
      *
      * @since v0.0
      */
-    _initDynamicLayer(_url, _layerParams, _sourceParams, ags_info, _callbackFunction) {
+    _initDynamicLayer(_url, _layerParams, _sourceParams, ags_info) {
         //sourceParams
         let sourceParams = {
             params: {layers: 'show:0'}
@@ -735,7 +846,7 @@ class StmaOpenLayers {
         //layerParams
         let _zIndex = 40;
         const url = new URL(_url);
-        if (((this._getConfig().ags_hosts) || []).includes(url.hostname)) {
+        if (this._stmaHosts('ags_hosts').includes(url.hostname)) {
             _zIndex = 50;
         }
 
@@ -758,30 +869,26 @@ class StmaOpenLayers {
         let layer = new LayerImage(layerParams);
         //Layer hinzufügen
         this.map.addLayer(layer);
-
-        //Callbackfunktion ausführen
-        if (typeof _callbackFunction == "function") {
-            _callbackFunction(layer);
-        }
+        return layer;
     }
 
     /**
      *    @description  initialisiert die Karte<br/>
      *                  Beispiel:<br/>
      *                  <code>mymap = new StmaOpenLayers();<br/>
-     *                  mymap.initMap(25832, {}, {});</code>
+     *                  const map = mymap.initMap(25832, {target: "map"}, {});</code>
      *
-     *    @param        {int} _epsgCode EPSG-Code des Koordinatensystems.
+     *    @param        {number} _epsgCode EPSG-Code des Koordinatensystems.
      *                  Unterstütze Werte sind: 25832, 3857<br/>
      *                  Siehe auch: {@link https://epsg.io/25832}, {@link http://epsg.io/3857}
      *
-     *    @param        {object} _mapParams
+     *    @param        {object} [_mapParams]
      *                  zusätzliche Parameter für das OpenLayer-Map-Objekt<br/>
      *
-     *    @param        {object} _viewParams
+     *    @param        {object} [_viewParams]
      *                  zusätzliche Parameter für das OpenLayer-View-Objekt<br/>
      *
-     *    @param        {object} _customParams
+     *    @param        {{tileLoadFunction?: Function, config?: GeolineConfig, popupId?: string}} [_customParams]
      *                  zusätzliche Parameter für geoline.ol.js<br/>
      *                  Unterstützte Parameter:
      *                  <ul>
@@ -794,17 +901,42 @@ class StmaOpenLayers {
      *                      Diese Funktion sollte nur sparsam genutzt werden, zum Beispiel für die Offlineverfügbarkeit in Apps.<br/>
      *                      Wird diese Funktion verwendet, so muss sichergestellt werden, dass die übergebene Konfiguration aktuell ist.
      *                  </li>
+     *
+     *                  <li>popupId: ID des Popup-Elements, Standard <code>geoline_ol_js_popup</code>. Bei mehreren Karten auf
+     *                      einer Seite braucht jede weitere Karte eine eigene ID. Das Element trägt immer die Klasse
+     *                      <code>geoline-ol-js-popup</code>.
+     *                  </li>
      *                  </ul>
      *
-     *    @param        {function} _callbackFunction
-     *                  Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.<br/>
-     *                  Der Funktion wird das jeweilige Layerobjekt übergeben.
+     *    @returns      {Map} die OpenLayers-Karte
      *
-     *    @returns      {null}
+     *    @throws       {TypeError} bei ungültigen Parametern oder wenn ein Callback übergeben wird
+     *    @throws       {Error} wenn die Instanz bereits eine Karte hat oder die Popup-ID im Dokument vergeben ist
      *
      *    @since        v0.0
      */
-    initMap(_epsgCode, _mapParams = {}, _viewParams = {}, _customParams = {}, _callbackFunction = null) {
+    initMap(_epsgCode, _mapParams = {}, _viewParams = {}, _customParams = {}) {
+        assertNoCallback(arguments, 4, 'initMap');
+        if (this._session != null) {
+            throw new Error("initMap: Die Karte ist bereits initialisiert. Vorher dispose() aufrufen.");
+        }
+        assertInteger(_epsgCode, '_epsgCode', 'initMap');
+        assertOptionalObject(_mapParams, '_mapParams', 'initMap');
+        assertOptionalObject(_viewParams, '_viewParams', 'initMap');
+        assertOptionalObject(_customParams, '_customParams', 'initMap');
+        const customParams = _customParams ?? {};
+        if (customParams.tileLoadFunction != null) {
+            assertFunction(customParams.tileLoadFunction, '_customParams.tileLoadFunction', 'initMap');
+        }
+        assertOptionalObject(customParams.config, '_customParams.config', 'initMap');
+        const popupId = customParams.popupId ?? DEFAULT_POPUP_ID;
+        assertString(popupId, '_customParams.popupId', 'initMap');
+        if (document.getElementById(popupId) !== null) {
+            throw new Error("initMap: Die Popup-ID '" + popupId + "' ist im Dokument bereits vergeben. Für weitere Karten _customParams.popupId angeben.");
+        }
+
+        this._session = {controller: new AbortController(), intervals: new Set()};
+
         // (25832) UTM-Projektion registrieren
         proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
         register(proj4);
@@ -820,14 +952,14 @@ class StmaOpenLayers {
         }
 
         // Custom-Parameter übernehmen
-        if (_customParams?.tileLoadFunction) {
-            this.tileLoadFunction = _customParams.tileLoadFunction;
+        if (customParams.tileLoadFunction) {
+            this.tileLoadFunction = customParams.tileLoadFunction;
         }
-        if (_customParams?.config) {
+        if (customParams.config) {
             console.warn("Konfiguration wurde manuell gesetzt und wird nicht vom Server des Stadtmessungsamtes geladen. Bitte stellen Sie sicher, dass die Konfiguration immer aktuell ist.");
-            this.config = _customParams.config;
+            this.config = customParams.config;
         } else {
-            // Config frühzeitig (asynchron) laden
+            // Config frühzeitig (asynchron) laden; Fehler erreichen die Aufrufer der Layer-Methoden als Result
             this._fetchConfig().catch(() => {
             });
         }
@@ -881,21 +1013,56 @@ class StmaOpenLayers {
         // Map erzeugen
         this.map = new Map(mapParams);
 
-        // Kontextmenü (Rechtsklick) auf der Karte unterbinden
-        const vp = document.querySelector(".ol-viewport");
-        if (vp) {
-            vp.addEventListener("contextmenu", function (e) {
-                e.preventDefault();
-            });
-        }
+        // Kontextmenü (Rechtsklick) auf der eigenen Karte unterbinden
+        this.map.getViewport().addEventListener("contextmenu", function (e) {
+            e.preventDefault();
+        });
+
+        // Popup-Element sofort anlegen, damit die ID für weitere Karten auf der Seite als vergeben erkennbar ist
+        const popupElement = document.createElement('div');
+        popupElement.id = popupId;
+        popupElement.className = 'geoline-ol-js-popup';
+        this.overlayLayer = new Overlay({element: popupElement});
+        this.map.addOverlay(this.overlayLayer);
 
         //Nach dem Start die Größe der Karte automatisch bestimmen
         this.map.updateSize();
 
-        //Callbackfunktion ausführen
-        if (typeof _callbackFunction == "function") {
-            _callbackFunction(this.map);
+        return this.map;
+    }
+
+    /**
+     *    @description  gibt die Karte frei: bricht laufende Anfragen ab, entfernt Intervalle, Listener, Overlays und
+     *                  Caches und löst die Karte von ihrem Element. Offene Promises liefern ein Result mit dem Code
+     *                  <code>ABORTED</code>; ihre Ergebnisse werden in keine Karte eingefügt.<br/>
+     *                  Danach kann mit initMap() eine neue Karte aufgebaut werden. Mehrfacher Aufruf ist unschädlich.
+     *
+     *    @returns      {void}
+     *
+     *    @since        v4.0
+     */
+    dispose() {
+        const session = this._session;
+        if (session == null) {
+            return;
         }
+        // Zuerst die Session lösen, damit Ergebnisse, die während des Abbruchs eintreffen, als veraltet gelten.
+        this._session = null;
+        session.controller.abort();
+        session.intervals.forEach((id) => clearInterval(id));
+        session.intervals.clear();
+        this.map.dispose();
+
+        this.map = null;
+        this.overlayLayer = null;
+        this.overlayLayers = [];
+        this.overlayFunctions = [];
+        this.overlayClickRegistered = false;
+        this.config = null;
+        this.configPromise = null;
+        this.viewParams = null;
+        this.tileLoadFunction = null;
+        this.projection = null;
     }
 
     /**
@@ -908,35 +1075,35 @@ class StmaOpenLayers {
      *                    <li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
      *                    </ul>
      *                    Beispiel:<br/>
-     *                    <code>mymap.addEsriLayer("https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer");</code>
+     *                    <code>const r = await mymap.addEsriLayer("https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer");</code>
      *
-     *    @param          {String} _url URL des Kartendienstes
-     *                    Kartendienste des Stadtmessungsamtes sollten über die Funktion addStmaEsriLayer hinzugefügt werden.
+     *    @param          {string} _url URL des Kartendienstes
+     *                    Kartendienste des Stadtmessungsamtes werden über die Methode addStmaEsriLayer hinzugefügt.
      *
-     *    @param          {object} _layerParams
+     *    @param          {object} [_layerParams]
      *                    zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>
      *
-     *    @param          {object} _sourceParams
+     *    @param          {object} [_sourceParams]
      *                    zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>
      *
-     *    @param          {function} _callbackFunction
-     *                    Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.<br/>
-     *                    Der Funktion wird das jeweilige Layerobjekt übergeben.
+     *    @returns        {Promise<Result<Layer>>} der hinzugefügte Layer oder ein erwartbarer Fehler.
+     *                    Die Promise wird mit einem TypeError abgelehnt, wenn die URL zu einem Kartendienst des Stadtmessungsamtes gehört.
      *
-     *    @returns        {null}
+     *    @throws         {TypeError} bei ungültigen Parametern oder wenn ein Callback übergeben wird
+     *    @throws         {Error} wenn keine Karte initialisiert ist
      *
      *    @since          v0.0
      */
-    addEsriLayer(_url, _layerParams = {}, _sourceParams = {}, _callbackFunction = null) {
-        const url = new URL(_url);
-        if (((this._getConfig().ags_hosts) || []).includes(url.hostname)) {
-            console.error("Kartendienste des Stadtmessungsamtes über die Methode addStmaEsriLayer hinzufügen");
-        } else {
-            this._addEsriLayer(_url, _layerParams, _sourceParams, _callbackFunction);
-        }
+    addEsriLayer(_url, _layerParams = {}, _sourceParams = {}) {
+        assertNoCallback(arguments, 3, 'addEsriLayer');
+        const session = this._requireSession('addEsriLayer');
+        const url = assertUrl(_url, '_url', 'addEsriLayer');
+        assertOptionalObject(_layerParams, '_layerParams', 'addEsriLayer');
+        assertOptionalObject(_sourceParams, '_sourceParams', 'addEsriLayer');
+        return this._rejectStmaHost(url, 'ags_hosts', 'addEsriLayer', 'addStmaEsriLayer').then(() =>
+            this._isStale(session) ? this._aborted() : this._addEsriLayer(_url, _layerParams, _sourceParams, session));
     }
 
-    // noinspection JSUnusedGlobalSymbols
     /**
      *    @description    fügt einen gecachten WMTS-Kartendienst hinzu.<br/>
      *                    Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
@@ -947,35 +1114,36 @@ class StmaOpenLayers {
      *                    <li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
      *                    </ul>
      *                    Beispiel:<br/>
-     *                    <code>mymap.addWMTSLayer("https://SERVERNAME/INSTANZ/gwc/service/wmts?REQUEST=GetCapabilities", "LAYERNAME");</code>
+     *                    <code>const r = await mymap.addWMTSLayer("https://SERVERNAME/INSTANZ/gwc/service/wmts?REQUEST=GetCapabilities", "LAYERNAME");</code>
      *
-     *    @param          {String} _url GetCapabilities-URL zum WMTS
-     *                    Kartendienste des Stadtmessungsamtes sollten über die Funktion addStmaWMTSLayer hinzugefügt werden.
+     *    @param          {string} _url GetCapabilities-URL zum WMTS
+     *                    Kartendienste des Stadtmessungsamtes werden über die Methode addStmaWMTSLayer hinzugefügt.
      *
-     *    @param          {String} _layerName Layername
-     *                    Name des Layers, der eingebunden werden soll
+     *    @param          {string} _layerName Name des Layers, der eingebunden werden soll
      *
-     *    @param          {object} _layerParams
+     *    @param          {object} [_layerParams]
      *                    zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>
      *
-     *    @param          {object} _sourceParams
+     *    @param          {object} [_sourceParams]
      *                    zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>
      *
-     *    @param          {function} _callbackFunction
-     *                    Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.<br/>
-     *                    Der Funktion wird das jeweilige Layerobjekt übergeben.
+     *    @returns        {Promise<Result<Layer>>} der hinzugefügte Layer oder ein erwartbarer Fehler.
+     *                    Die Promise wird mit einem TypeError abgelehnt, wenn die URL zu einem Kartendienst des Stadtmessungsamtes gehört.
      *
-     *    @returns        {null}
+     *    @throws         {TypeError} bei ungültigen Parametern oder wenn ein Callback übergeben wird
+     *    @throws         {Error} wenn keine Karte initialisiert ist
      *
      *    @since          v2.1
      */
-    addWMTSLayer(_url, _layerName = '', _layerParams = {}, _sourceParams = {}, _callbackFunction = null) {
-        const url = new URL(_url);
-        if (((this._getConfig().wmts_hosts) || []).includes(url.hostname)) {
-            console.error("WMTS-Kartendienste des Stadtmessungsamtes über die Methode addStmaWMTSLayer hinzufügen");
-        } else {
-            this._addWMTSLayer_impl(_url, _layerName, _layerParams, _sourceParams, _callbackFunction);
-        }
+    addWMTSLayer(_url, _layerName, _layerParams = {}, _sourceParams = {}) {
+        assertNoCallback(arguments, 4, 'addWMTSLayer');
+        const session = this._requireSession('addWMTSLayer');
+        const url = assertUrl(_url, '_url', 'addWMTSLayer');
+        assertString(_layerName, '_layerName', 'addWMTSLayer');
+        assertOptionalObject(_layerParams, '_layerParams', 'addWMTSLayer');
+        assertOptionalObject(_sourceParams, '_sourceParams', 'addWMTSLayer');
+        return this._rejectStmaHost(url, 'wmts_hosts', 'addWMTSLayer', 'addStmaWMTSLayer').then(() =>
+            this._isStale(session) ? this._aborted() : this._addWMTSLayer_impl(_url, _layerName, _layerParams, _sourceParams, session));
     }
 
     /**
@@ -988,7 +1156,7 @@ class StmaOpenLayers {
      *                    <li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
      *                    </ul>
      *                    Beispiel:<br/>
-     *                    <code>mymap.addWMSLayer("https://SERVERNAME/INSTANZ/gwc/service/wms", "LAYERNAME");</code>
+     *                    <code>const r = await mymap.addWMSLayer("https://SERVERNAME/INSTANZ/gwc/service/wms", "LAYERNAME");</code>
      *                    <br/><br/>
      *                    Der Layer kann gekachelt oder als ganzes Bild abgerufen werden. Standard ist der Abruf als ganzes Bild,
      *                    da aber einige WMS-Dienste keine großen Bilder auf einmal zurückgeben können, kann der WMS auch gekachelt
@@ -998,39 +1166,39 @@ class StmaOpenLayers {
      *                    wird er als gecachter Dienst behandelt (wichtig für die zIndexe der Kartendienste)
      *                    Zum gekachelten Abruf muss als _sourceParams <code>{ "TILED": true }</code> übergeben werden.<br/>
      *                    Beispiel:<br/>
-     *                    <code>mymap.addWMSLayer("https://SERVERNAME/INSTANZ/gwc/service/wms", "LAYERNAME", {}, { "TILED": true });</code>
+     *                    <code>const r = await mymap.addWMSLayer("https://SERVERNAME/INSTANZ/gwc/service/wms", "LAYERNAME", {}, { "TILED": true });</code>
      *
+     *    @param          {string} _url URL zum WMS
+     *                    Kartendienste des Stadtmessungsamtes werden über die Methode addStmaWMSLayer hinzugefügt.
      *
-     *    @param          {String} _url URL zum WMS
-     *                    Kartendienste des Stadtmessungsamtes sollten über die Funktion addStmaWMSLayer hinzugefügt werden.
+     *    @param          {string} _layerName Name des Layers, der eingebunden werden soll
      *
-     *    @param          {String} _layerName Layername
-     *                    Name des Layers, der eingebunden werden soll
-     *
-     *    @param          {object} _layerParams
+     *    @param          {object} [_layerParams]
      *                    zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>
      *
-     *    @param          {object} _sourceParams
+     *    @param          {object} [_sourceParams]
      *                    zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>
      *
-     *    @param          {function} _callbackFunction
-     *                    Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.<br/>
-     *                    Der Funktion wird das jeweilige Layerobjekt übergeben.
+     *    @returns        {Promise<Result<Layer>>} der hinzugefügte Layer oder ein erwartbarer Fehler.
+     *                    Asynchron, weil die Kartendienste des Stadtmessungsamtes erst nach dem Laden der Konfiguration bekannt sind.
+     *                    Die Promise wird mit einem TypeError abgelehnt, wenn die URL zu einem Kartendienst des Stadtmessungsamtes gehört.
      *
-     *    @returns        {null}
+     *    @throws         {TypeError} bei ungültigen Parametern oder wenn ein Callback übergeben wird
+     *    @throws         {Error} wenn keine Karte initialisiert ist
      *
      *    @since          v2.1
      */
-    addWMSLayer(_url, _layerName, _layerParams = {}, _sourceParams = {}, _callbackFunction = null) {
-        const url = new URL(_url);
-        if (((this._getConfig().wms_hosts) || []).includes(url.hostname)) {
-            console.error("WMS-Kartendienste des Stadtmessungsamtes über die Methode addStmaWMSLayer hinzufügen");
-        } else {
-            this._addWMSLayer(_url, _layerName, _layerParams, _sourceParams, _callbackFunction);
-        }
+    addWMSLayer(_url, _layerName, _layerParams = {}, _sourceParams = {}) {
+        assertNoCallback(arguments, 4, 'addWMSLayer');
+        const session = this._requireSession('addWMSLayer');
+        const url = assertUrl(_url, '_url', 'addWMSLayer');
+        assertString(_layerName, '_layerName', 'addWMSLayer');
+        assertOptionalObject(_layerParams, '_layerParams', 'addWMSLayer');
+        assertOptionalObject(_sourceParams, '_sourceParams', 'addWMSLayer');
+        return this._rejectStmaHost(url, 'wms_hosts', 'addWMSLayer', 'addStmaWMSLayer').then(() =>
+            this._isStale(session) ? this._aborted() : ok(this._addWMSLayer(_url, _layerName, _layerParams, _sourceParams)));
     }
 
-    // noinspection JSUnusedGlobalSymbols
     /**
      *    @description    fügt einen Kartendienst eines ArcGIS Servers (dynamisch / gecacht) des Stadtmessungsamtes hinzu.<br/>
      *                    Wenn nichts anderes angegeben ist, dann gelten folgende zIndexe für die Kartendienste:
@@ -1041,34 +1209,41 @@ class StmaOpenLayers {
      *                    <li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
      *                    </ul>
      *                    Beispiel:<br/>
-     *                    <code>mymap.addStmaEsriLayer("1_Base/Stadtkarte_Internet_c");</code>
+     *                    <code>const r = await mymap.addStmaEsriLayer("1_Base/Stadtkarte_Internet_c_EPSG25832");</code>
      *
-     *    @param          {String} _mapservice Bezeichnung des Kartendienstes
+     *    @param          {string} _mapservice Bezeichnung des Kartendienstes
      *                    Wenn die URL des Kartendienstes beispielsweise https://SERVER/ArcGIS/rest/services/ORDNER/KARTENDIENST/MapServer heißt,
      *                    so sollte ORDNER/KARTENDIENST angegeben werden.
      *
-     *    @param          {object} _layerParams
+     *    @param          {object} [_layerParams]
      *                    zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>
      *
-     *    @param          {object} _sourceParams
+     *    @param          {object} [_sourceParams]
      *                    zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>
      *
-     *    @param          {function} _callbackFunction
-     *                    Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
-     *                    Der Funktion wird das jeweilige Layerobjekt übergeben.
+     *    @returns        {Promise<Result<Layer>>} der hinzugefügte Layer oder ein erwartbarer Fehler
      *
-     *    @returns        {null}
+     *    @throws         {TypeError} bei ungültigen Parametern oder wenn ein Callback übergeben wird
+     *    @throws         {Error} wenn keine Karte initialisiert ist
      *
      *    @since          v0.0
      */
-    addStmaEsriLayer(_mapservice, _layerParams = {}, _sourceParams = {}, _callbackFunction = null) {
-        this._fetchConfig()
-            .then(() => {
-                this._addEsriLayer("https://" + this._getConfig().ags_host + "/" + this._getConfig().ags_instance + "/rest/services/" + _mapservice + "/MapServer", _layerParams, _sourceParams, _callbackFunction);
-            })
-            .catch(err => {
-                console.error("Konfiguration (geoline.config) konnte nicht geladen werden – addStmaEsriLayer wird übersprungen", err);
-            });
+    addStmaEsriLayer(_mapservice, _layerParams = {}, _sourceParams = {}) {
+        assertNoCallback(arguments, 3, 'addStmaEsriLayer');
+        const session = this._requireSession('addStmaEsriLayer');
+        assertString(_mapservice, '_mapservice', 'addStmaEsriLayer');
+        assertOptionalObject(_layerParams, '_layerParams', 'addStmaEsriLayer');
+        assertOptionalObject(_sourceParams, '_sourceParams', 'addStmaEsriLayer');
+        return this._loadConfig().then((result) => {
+            if (this._isStale(session)) {
+                return this._aborted();
+            }
+            if (!result.ok) {
+                return result;
+            }
+            const config = result.value;
+            return this._addEsriLayer("https://" + config.ags_host + "/" + config.ags_instance + "/rest/services/" + _mapservice + "/MapServer", _layerParams, _sourceParams, session);
+        });
     }
 
     /**
@@ -1081,44 +1256,44 @@ class StmaOpenLayers {
      *                    <li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
      *                    </ul>
      *                    Beispiel:<br/>
-     *                    <code>mymap.addStmaWMTSLayer("LAYERNAME");</code>
+     *                    <code>const r = await mymap.addStmaWMTSLayer("LAYERNAME");</code>
      *
-     *    @param          {String} _layerName Layername
-     *                    Name des Layers, der eingebunden werden soll
+     *    @param          {string} _layerName Name des Layers, der eingebunden werden soll
      *
-     *    @param          {object} _layerParams
+     *    @param          {object} [_layerParams]
      *                    zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>
      *
-     *    @param          {object} _sourceParams
+     *    @param          {object} [_sourceParams]
      *                    zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>
      *
-     *    @param          {function} _callbackFunction
-     *                    Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.<br/>
-     *                    Der Funktion wird das jeweilige Layerobjekt übergeben.
+     *    @returns        {Promise<Result<Layer>>} der hinzugefügte Layer oder ein erwartbarer Fehler
      *
-     *    @returns        {null}
+     *    @throws         {TypeError} bei ungültigen Parametern oder wenn ein Callback übergeben wird
+     *    @throws         {Error} wenn keine Karte initialisiert ist
      *
      *    @since          v2.1
      */
-    addStmaWMTSLayer(_layerName, _layerParams = {}, _sourceParams = {}, _callbackFunction = null) {
-        this._fetchConfig()
-            .then(() => {
-                //Matrix definieren - das was hier angegeben wird, kann nicht vom Nutzer überdefiniert werden.
-                if (_sourceParams == null) {
-                    _sourceParams = {};
-                }
-                const _predefinedSourceParams = {
-                    matrixSet: this._getConfig().wmts_matrix
-                }
-                _sourceParams = {
-                    ..._sourceParams,
-                    ..._predefinedSourceParams
-                };
-                this._addWMTSLayer_impl("https://" + this._getConfig().wmts_host + "/" + this._getConfig().wmts_instance + "/gwc/service/wmts?REQUEST=GetCapabilities", _layerName, _layerParams, _sourceParams, _callbackFunction);
-            })
-            .catch(err => {
-                console.error("Konfiguration (geoline.config) konnte nicht geladen werden – addStmaWMTSLayer wird übersprungen", err);
-            });
+    addStmaWMTSLayer(_layerName, _layerParams = {}, _sourceParams = {}) {
+        assertNoCallback(arguments, 3, 'addStmaWMTSLayer');
+        const session = this._requireSession('addStmaWMTSLayer');
+        assertString(_layerName, '_layerName', 'addStmaWMTSLayer');
+        assertOptionalObject(_layerParams, '_layerParams', 'addStmaWMTSLayer');
+        assertOptionalObject(_sourceParams, '_sourceParams', 'addStmaWMTSLayer');
+        return this._loadConfig().then((result) => {
+            if (this._isStale(session)) {
+                return this._aborted();
+            }
+            if (!result.ok) {
+                return result;
+            }
+            const config = result.value;
+            //Matrix definieren - das was hier angegeben wird, kann nicht vom Nutzer überdefiniert werden.
+            const sourceParams = {
+                ..._sourceParams,
+                matrixSet: config.wmts_matrix
+            };
+            return this._addWMTSLayer_impl("https://" + config.wmts_host + "/" + config.wmts_instance + "/gwc/service/wmts?REQUEST=GetCapabilities", _layerName, _layerParams, sourceParams, session);
+        });
     }
 
     /**
@@ -1131,54 +1306,46 @@ class StmaOpenLayers {
      *                    <li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
      *                    </ul>
      *                    Beispiel:<br/>
-     *                    <code>mymap.addStmaWMSLayer("LAYERNAME");</code>
+     *                    <code>const r = await mymap.addStmaWMSLayer("LAYERNAME");</code>
      *                    <br/><br/>
-     *                    Der Layer kann gekachelt oder als ganzes Bild abgerufen werden. Standard ist der Abruf als ganzes Bild,
-     *                    da aber einige WMS-Dienste keine großen Bilder auf einmal zurückgeben können, kann der WMS auch gekachelt
-     *                    abgerufen werden. Dies kann zu Lasten der Kartographie gehen - so kann es passieren, dass Beschriftungen
-     *                    abgeschnitten oder mehrfach im Kartenbild enthalten sind.<br/>
-     *                    Standardmäßig wird der WMS-Dienst als dynamischer Dienst behandelt, wenn der als gekachelter Dienst eingebunden wird,
-     *                    wird er als gecachter Dienst behandelt (wichtig für die zIndexe der Kartendienste)
-     *                    Zum gekachelten Abruf muss als _sourceParams <code>{ "TILED": true }</code> übergeben werden.<br/>
-     *                    Beispiel:<br/>
-     *                    <code>mymap.addStmaWMSLayer("LAYERNAME", {}, { "TILED": true });</code>
+     *                    Ob der Layer gekachelt oder als ganzes Bild abgerufen wird, legt die Konfiguration des Stadtmessungsamtes fest.
      *
-     *    @param          {String} _layerName Layername
-     *                    Name des Layers, der eingebunden werden soll
+     *    @param          {string} _layerName Name des Layers, der eingebunden werden soll
      *
-     *    @param          {object} _layerParams
+     *    @param          {object} [_layerParams]
      *                    zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>
      *
-     *    @param          {object} _sourceParams
+     *    @param          {object} [_sourceParams]
      *                    zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>
      *
-     *    @param          {function} _callbackFunction
-     *                    Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.<br/>
-     *                    Der Funktion wird das jeweilige Layerobjekt übergeben.
+     *    @returns        {Promise<Result<Layer>>} der hinzugefügte Layer oder ein erwartbarer Fehler
      *
-     *    @returns        {null}
+     *    @throws         {TypeError} bei ungültigen Parametern oder wenn ein Callback übergeben wird
+     *    @throws         {Error} wenn keine Karte initialisiert ist
      *
      *    @since          v2.1
      */
-    addStmaWMSLayer(_layerName, _layerParams = {}, _sourceParams = {}, _callbackFunction = null) {
-        this._fetchConfig()
-            .then(() => {
-                //Tiled definieren - das was hier angegeben wird, kann nicht vom Nutzer überdefiniert werden.
-                if (_sourceParams == null) {
-                    _sourceParams = {};
-                }
-                const _predefinedSourceParams = {
-                    TILED: this._getConfig().wms_tiled
-                }
-                _sourceParams = {
-                    ..._sourceParams,
-                    ..._predefinedSourceParams
-                };
-                this._addWMSLayer("https://" + this._getConfig().wms_host + "/" + this._getConfig().wms_instance, _layerName, _layerParams, _sourceParams, _callbackFunction);
-            })
-            .catch(err => {
-                console.error("Konfiguration (geoline.config) konnte nicht geladen werden – addStmaWMSLayer wird übersprungen", err);
-            });
+    addStmaWMSLayer(_layerName, _layerParams = {}, _sourceParams = {}) {
+        assertNoCallback(arguments, 3, 'addStmaWMSLayer');
+        const session = this._requireSession('addStmaWMSLayer');
+        assertString(_layerName, '_layerName', 'addStmaWMSLayer');
+        assertOptionalObject(_layerParams, '_layerParams', 'addStmaWMSLayer');
+        assertOptionalObject(_sourceParams, '_sourceParams', 'addStmaWMSLayer');
+        return this._loadConfig().then((result) => {
+            if (this._isStale(session)) {
+                return this._aborted();
+            }
+            if (!result.ok) {
+                return result;
+            }
+            const config = result.value;
+            //Tiled definieren - das was hier angegeben wird, kann nicht vom Nutzer überdefiniert werden.
+            const sourceParams = {
+                ..._sourceParams,
+                TILED: config.wms_tiled
+            };
+            return ok(this._addWMSLayer("https://" + config.wms_host + "/" + config.wms_instance, _layerName, _layerParams, sourceParams));
+        });
     }
 
     /**
@@ -1191,91 +1358,96 @@ class StmaOpenLayers {
      *                    <li>50: dynamisch - Kartendienst des Stadtmessungsamtes</li>
      *                    </ul>
      *                    Beispiel:<br/>
-     *                    <code>
-     *                        mymap.addStmaBaseLayer("Grundkarte");<br/>
-     *                        mymap.addStmaBaseLayer("Luftbild");
-     *                    </code>
+     *                    <code>const r = await mymap.addStmaBaseLayer("Basemap");</code>
      *
-     *    @param          {String} _mapname sprechende Bezeichnung des Kartendienstes
+     *    @param          {string} _mapname sprechende Bezeichnung des Kartendienstes
      *                    Für ausgewählte Basiskartendienste kann hierüber über eine sprechende Bezeichnung der Kartendienst hinzugefügt werden.
      *                    Eventuelle Kartendienstnamenänderungen werden automatisch von der API berücksichtigt.
-     *                    Deswegen sollten die Basiskarten (Grundkarte, Luftbild, ..) immer über diese Funktion eingebundne werden.
+     *                    Deswegen sollten die Basiskarten immer über diese Funktion eingebunden werden.
      *
-     *    @param          {object} _layerParams
+     *    @param          {object} [_layerParams]
      *                    zusätzliche Parameter für das OpenLayer-Layer-Objekt<br/>
      *
-     *    @param          {object} _sourceParams
+     *    @param          {object} [_sourceParams]
      *                    zusätzliche Parameter für das OpenLayer-Source-Objekt<br/>
      *
-     *    @param          {function} _callbackFunction
-     *                    Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
-     *                    Der Funktion wird das jeweilige Layerobjekt übergeben.
+     *    @returns        {Promise<Result<Layer>>} der hinzugefügte Layer oder ein erwartbarer Fehler,
+     *                    <code>NOT_FOUND</code> bei einer unbekannten Bezeichnung
      *
-     *    @returns        {null}
+     *    @throws         {TypeError} bei ungültigen Parametern oder wenn ein Callback übergeben wird
+     *    @throws         {Error} wenn keine Karte initialisiert ist
      *
      *    @since          v0.0
      */
-    addStmaBaseLayer(_mapname, _layerParams = {}, _sourceParams = {}, _callbackFunction = null) {
-        this._fetchConfig()
-            .then(() => {
-                const config = this._getConfig();
-                const ags = config?.ags_services?.[_mapname] ?? null;
-                const wmts = config?.wmts_services?.[_mapname] ?? null;
-                const wms = config?.wms_services?.[_mapname] ?? null;
+    addStmaBaseLayer(_mapname, _layerParams = {}, _sourceParams = {}) {
+        assertNoCallback(arguments, 3, 'addStmaBaseLayer');
+        const session = this._requireSession('addStmaBaseLayer');
+        assertString(_mapname, '_mapname', 'addStmaBaseLayer');
+        assertOptionalObject(_layerParams, '_layerParams', 'addStmaBaseLayer');
+        assertOptionalObject(_sourceParams, '_sourceParams', 'addStmaBaseLayer');
+        return this._loadConfig().then((result) => {
+            if (this._isStale(session)) {
+                return this._aborted();
+            }
+            if (!result.ok) {
+                return result;
+            }
+            const config = result.value;
+            const ags = config?.ags_services?.[_mapname] ?? null;
+            const wmts = config?.wmts_services?.[_mapname] ?? null;
+            const wms = config?.wms_services?.[_mapname] ?? null;
 
-                if (ags) {
-                    const finalUrl = `https://${ags.ags_host}/${ags.ags_instance}/rest/services/${ags.ags_service}/MapServer`;
-                    this._addEsriLayer(finalUrl, _layerParams, _sourceParams, _callbackFunction);
-                } else if (wmts) {
-                    const finalUrl = `https://${wmts.host}/${wmts.instance}/gwc/service/wmts?REQUEST=GetCapabilities`;
-                    const sourceParams = {
-                        ..._sourceParams,
-                        matrixSet: wmts.matrix
-                    };
-                    this._addWMTSLayer_impl(finalUrl, wmts.service, _layerParams, sourceParams, _callbackFunction);
-                } else if (wms) {
-                    const finalUrl = `https://${wms.host}/${wms.instance}`;
-                    const sourceParams = {
-                        ..._sourceParams,
-                        TILED: wms.tiled
-                    };
-                    this._addWMSLayer(finalUrl, wms.service, _layerParams, sourceParams, _callbackFunction);
-                } else {
-                    console.error("Karte '" + _mapname + "' nicht gefunden");
-                }
-            })
-            .catch(err => {
-                console.error("Konfiguration (geoline.config) konnte nicht geladen werden – addStmaBaseLayer wird übersprungen", err);
-            });
+            if (ags) {
+                const finalUrl = `https://${ags.ags_host}/${ags.ags_instance}/rest/services/${ags.ags_service}/MapServer`;
+                return this._addEsriLayer(finalUrl, _layerParams, _sourceParams, session);
+            }
+            if (wmts) {
+                const finalUrl = `https://${wmts.host}/${wmts.instance}/gwc/service/wmts?REQUEST=GetCapabilities`;
+                const sourceParams = {
+                    ..._sourceParams,
+                    matrixSet: wmts.matrix
+                };
+                return this._addWMTSLayer_impl(finalUrl, wmts.service, _layerParams, sourceParams, session);
+            }
+            if (wms) {
+                const finalUrl = `https://${wms.host}/${wms.instance}`;
+                const sourceParams = {
+                    ..._sourceParams,
+                    TILED: wms.tiled
+                };
+                return ok(this._addWMSLayer(finalUrl, wms.service, _layerParams, sourceParams));
+            }
+            return fail('NOT_FOUND', "Die Karte '" + _mapname + "' ist in der Konfiguration des Stadtmessungsamtes nicht vorhanden.");
+        });
     }
 
     /**
      *    @description    fügt einzelne Punkte hinzu.<br/>
      *                    Wenn nichts anderes angegeben ist, dann gilt der zIndex 60.<br/>
      *                    Beispiel:<br/>
-     *                    <code>mymap.addPoints([[3513223, 5405026]], "images/target.png");</code>
+     *                    <code>const layer = mymap.addPoints([[513223, 5405026]], "images/target.png");</code>
      *
-     *    @param          {Array} _pointCoords Array von Koordinatenpaaren<br/>
+     *    @param          {Array<Array<number>>} _pointCoords Array von Koordinatenpaaren<br/>
      *                    [ [x,y], [x,y], ... ]
      *
-     *    @param          {String} _imageURL URL zu dem Bild des Punktes / Data-URL des Bildes
+     *    @param          {string} _imageURL URL zu dem Bild des Punktes / Data-URL des Bildes
      *
-     *    @param          {function} _callbackFunction
-     *                    Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
-     *                    Der Funktion wird das jeweilige Layerobjekt übergeben.
+     *    @returns        {LayerVector} der hinzugefügte Vektor-Layer
      *
-     *    @returns        {null}
+     *    @throws         {TypeError} bei ungültigen Parametern oder wenn ein Callback übergeben wird
+     *    @throws         {Error} wenn keine Karte initialisiert ist
      *
      *    @since          v0.0
      */
-    addPoints(_pointCoords, _imageURL, _callbackFunction = null) {
+    addPoints(_pointCoords, _imageURL) {
+        assertNoCallback(arguments, 2, 'addPoints');
+        this._requireSession('addPoints');
+        assertCoordinateList(_pointCoords, '_pointCoords', 'addPoints');
+        assertString(_imageURL, '_imageURL', 'addPoints');
 
-        let features = [];
-        for (let i = 0; i < _pointCoords.length; i++) {
-            features.push(new Feature({
-                geometry: new GeomPoint(_pointCoords[i])
-            }));
-        }
+        const features = _pointCoords.map((coordinate) => new Feature({
+            geometry: new GeomPoint(coordinate)
+        }));
 
         const vectorLayer = new LayerVector({
             zIndex: 60,
@@ -1290,101 +1462,126 @@ class StmaOpenLayers {
             })
         });
         this.map.addLayer(vectorLayer);
-
-        //Callbackfunktion ausführen
-        if (typeof _callbackFunction == "function") {
-            _callbackFunction(vectorLayer);
-        }
+        return vectorLayer;
     }
 
     /**
      *    @description    fügt Objekte aus einem geoJSON hinzu. Das geoJSON ist über eine URL erreichbar.<br/>
      *                    Beispiel:
-     *                    <code>mymap.addGeoJSONfromURL("examples/example.geojson");</code>
+     *                    <code>const r = await mymap.addGeoJSONfromURL("examples/example.geojson");</code>
      *
-     *    @param          {String} _url URL zur geoJSON-Datei
+     *    @param          {string} _url URL zur geoJSON-Datei, auch relativ zur Seite
      *
-     *    @param          {boolean} _zoomTo
+     *    @param          {boolean} [_zoomTo]
      *                    Passt den sichtbaren Bereich der Karte so an, dass alle Objekte der Vektorquelle vollständig sichtbar sind
      *
-     *    @param          {object} _style (optional) Ausprägungs-Details<br/>
+     *    @param          {import('ol/style/Style.js').StyleLike} [_style] (optional) Ausprägungs-Details<br/>
      *
-     *    @param          {function} _callbackFunction
-     *                    Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
-     *                    Der Funktion wird das jeweilige Layerobjekt übergeben. Der Funktion wird false übergeben, wenn das GeoJSON
-     *                    nicht abgerufen werden konnte.
+     *    @returns        {Promise<Result<LayerVector>>} der hinzugefügte Vektor-Layer oder ein erwartbarer Fehler:
+     *                    <code>SERVICE_UNAVAILABLE</code>, wenn die Datei nicht abrufbar ist, <code>INVALID_DATA</code>
+     *                    bei ungültigem Inhalt
      *
-     *    @returns        {null}
+     *    @throws         {TypeError} bei ungültigen Parametern oder wenn ein Callback übergeben wird
+     *    @throws         {Error} wenn keine Karte initialisiert ist
      *
      *    @since          v2.0
      */
-    addGeoJSONfromURL(_url, _zoomTo = false, _style = {}, _callbackFunction = null) {
-        fetch(_url)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(geojson => {
-                this.addGeoJSON(geojson, _zoomTo, _style, _callbackFunction);
-            })
-            .catch(error => {
-                console.error("JSON konnte von URL " + _url + " nicht abgerufen werden.", error);
+    addGeoJSONfromURL(_url, _zoomTo = false, _style = {}) {
+        assertNoCallback(arguments, 3, 'addGeoJSONfromURL');
+        const session = this._requireSession('addGeoJSONfromURL');
+        assertString(_url, '_url', 'addGeoJSONfromURL');
+        assertBoolean(_zoomTo, '_zoomTo', 'addGeoJSONfromURL');
+        assertOptionalStyle(_style, '_style', 'addGeoJSONfromURL');
 
-                // Callbackfunktion ausführen
-                if (typeof _callbackFunction === "function") {
-                    _callbackFunction(false);
+        return fetch(_url, {signal: session.controller.signal}).then(
+            (response) => {
+                if (this._isStale(session)) {
+                    return this._aborted();
                 }
-            });
+                if (!response.ok) {
+                    return fail('SERVICE_UNAVAILABLE', "Das GeoJSON unter " + _url + " ist nicht abrufbar (HTTP " + response.status + ").");
+                }
+                return response.json().then(
+                    (geojson) => this._isStale(session)
+                        ? this._aborted()
+                        : this._addGeoJSON(geojson, _zoomTo, _style, session),
+                    (err) => this._isStale(session)
+                        ? this._aborted()
+                        : fail('INVALID_DATA', "Die Datei unter " + _url + " enthält kein gültiges JSON.", err)
+                );
+            },
+            (err) => this._isStale(session)
+                ? this._aborted()
+                : fail('SERVICE_UNAVAILABLE', "Das GeoJSON unter " + _url + " ist nicht abrufbar.", err)
+        );
     }
 
     /**
      *    @description    fügt Objekte aus einem geoJSON hinzu.
      *                    Beispiel:
-     *                    <code>mymap.addGeoJSON(_geojson);</code>
+     *                    <code>const r = mymap.addGeoJSON(_geojson);</code>
      *
      *    @param          {object} _geojson GeoJSON-Objekt
      *
-     *    @param          {boolean} _zoomTo
+     *    @param          {boolean} [_zoomTo]
      *                    Passt den sichtbaren Bereich der Karte so an, dass alle Objekte der Vektorquelle vollständig sichtbar sind
      *
-     *    @param          {object} _style (optional) Ausprägungs-Details<br/>
+     *    @param          {import('ol/style/Style.js').StyleLike} [_style] (optional) Ausprägungs-Details<br/>
      *
-     *    @param          {function} _callbackFunction
-     *                    Möglichkeit, eine Funktion zu übergeben, die nach dem Hinzufügen des Layers ausgeführt wird.
-     *                    Der Funktion wird das jeweilige Layerobjekt übergeben.
+     *    @returns        {Result<LayerVector>} der hinzugefügte Vektor-Layer oder <code>INVALID_DATA</code>, wenn das
+     *                    GeoJSON nicht gelesen werden kann
      *
-     *    @returns        {null}
+     *    @throws         {TypeError} bei ungültigen Parametern oder wenn ein Callback übergeben wird
+     *    @throws         {Error} wenn keine Karte initialisiert ist
      *
      *    @since          v2.0
      */
-    addGeoJSON(_geojson, _zoomTo = false, _style = {}, _callbackFunction = null) {
+    addGeoJSON(_geojson, _zoomTo = false, _style = {}) {
+        assertNoCallback(arguments, 3, 'addGeoJSON');
+        const session = this._requireSession('addGeoJSON');
+        assertObject(_geojson, '_geojson', 'addGeoJSON');
+        assertBoolean(_zoomTo, '_zoomTo', 'addGeoJSON');
+        assertOptionalStyle(_style, '_style', 'addGeoJSON');
+        return this._addGeoJSON(_geojson, _zoomTo, _style, session);
+    }
 
-        let _projectionGeoJSON = "EPSG:4326";
-        //Wurde das Koordinatensystem angegeben?
-        if ("crs" in _geojson) {
-            if ("properties" in _geojson.crs) {
-                if ("name" in _geojson.crs.properties) {
-                    _projectionGeoJSON = _geojson.crs.properties.name;
+    /**
+     * Liest das GeoJSON und fügt es als Vektor-Layer hinzu. Ungültige Daten sind ein erwartbarer Fehler.
+     *
+     * @param   {unknown} _geojson GeoJSON-Daten
+     * @param   {boolean} _zoomTo Ausschnitt auf die Objekte anpassen
+     * @param   {import('ol/style/Style.js').StyleLike} _style Ausprägungs-Details
+     * @param   {Session} session Session beim Aufruf
+     * @returns {Result<LayerVector>}
+     */
+    _addGeoJSON(_geojson, _zoomTo, _style, session) {
+        let features;
+        try {
+            let _projectionGeoJSON = "EPSG:4326";
+            //Wurde das Koordinatensystem angegeben?
+            if ("crs" in _geojson) {
+                if ("properties" in _geojson.crs) {
+                    if ("name" in _geojson.crs.properties) {
+                        _projectionGeoJSON = _geojson.crs.properties.name;
+                    }
                 }
             }
+
+            //Bei urn:ogc:def:crs:OGC:1.3:CRS84 wird unter Verwendung von UTM(EPSG:25832) nicht korrekt transformiert.
+            if (_projectionGeoJSON === "urn:ogc:def:crs:OGC:1.3:CRS84") {
+                _projectionGeoJSON = "EPSG:4326";
+            }
+
+            if (getProjection(_projectionGeoJSON) == null) {
+                console.error("Projektion " + _projectionGeoJSON + " nicht gefunden. Es kann zu falscher Darstellung der Karte kommen");
+            }
+
+            features = this._getGeoJSONFormat(_projectionGeoJSON).readFeatures(_geojson);
+        } catch (err) {
+            return fail('INVALID_DATA', "Das GeoJSON kann nicht gelesen werden.", err);
         }
 
-        //Bei urn:ogc:def:crs:OGC:1.3:CRS84 wird unter Verwendung von UTM(EPSG:25832) nicht korrekt transformiert.
-        if (_projectionGeoJSON === "urn:ogc:def:crs:OGC:1.3:CRS84") {
-            _projectionGeoJSON = "EPSG:4326";
-        }
-
-        if (getProjection(_projectionGeoJSON) == null) {
-            console.error("Projektion " + _projectionGeoJSON + " nicht gefunden. Es kann zu falscher Darstellung der Karte kommen");
-        }
-
-        const _geojsonFormat = this._getGeoJSONFormat(_projectionGeoJSON);
-        const _vectorSource = new SourceVector({
-            features: _geojsonFormat.readFeatures(_geojson)
-        });
-
+        const _vectorSource = new SourceVector({features});
         const vectorLayer = new LayerVector({
             zIndex: 60,
             source: _vectorSource,
@@ -1395,19 +1592,17 @@ class StmaOpenLayers {
 
         if (_zoomTo === true) {
             //warte bis View bereit ist.
-            let self = this;
-            const zoomToInterval = window.setInterval(function () {
-                if (self.map.getView().getZoom() !== undefined) {
+            const zoomToInterval = setInterval(() => {
+                if (this.map.getView().getZoom() !== undefined) {
                     clearInterval(zoomToInterval);
-                    self.map.getView().fit(_vectorSource.getExtent());
+                    session.intervals.delete(zoomToInterval);
+                    this.map.getView().fit(_vectorSource.getExtent());
                 }
             }, 500);
+            session.intervals.add(zoomToInterval);
         }
 
-        //Callbackfunktion ausführen
-        if (typeof _callbackFunction == "function") {
-            _callbackFunction(vectorLayer);
-        }
+        return ok(vectorLayer);
     }
 
     /**
@@ -1415,35 +1610,32 @@ class StmaOpenLayers {
      *                    Beispiel:
      *                    <code>mymap.addOverlayForLayer(_layer, _overlayFunction);</code>
      *
-     *    @param          {object} _layer Das Layerobjekt
+     *    @param          {Layer} _layer Das Layerobjekt
      *
-     *    @param          {function} _overlayFunction
+     *    @param          {function(import('ol/Feature.js').FeatureLike): string} _overlayFunction
      *                    Funktion, die bei einem Klick auf das Objekt ausgeführt wird.
-     *                    Die Funktion muss den HTML-Inhalt für ein Overlay-Fenster zurückgeben.
+     *                    Die Funktion muss den HTML-Inhalt für ein Overlay-Fenster zurückgeben. Der Inhalt wird
+     *                    ungefiltert als HTML eingesetzt.
      *
-     *    @returns        {null}
+     *    @returns        {void}
+     *
+     *    @throws         {TypeError} wenn `_layer` kein Layer oder `_overlayFunction` keine Funktion ist
+     *    @throws         {Error} wenn keine Karte initialisiert ist
      *
      *    @since          v1.2
      */
-    addOverlayForLayer(_layer, _overlayFunction = null) {
+    addOverlayForLayer(_layer, _overlayFunction) {
+        this._requireSession('addOverlayForLayer');
+        if (_layer == null || typeof _layer.getSource !== 'function') {
+            throw new TypeError("addOverlayForLayer: _layer muss ein OpenLayers-Layer sein.");
+        }
+        assertFunction(_overlayFunction, '_overlayFunction', 'addOverlayForLayer');
 
-        //globaler Overlay-Layer hinzufügen
-        if (this.overlayLayer == null) {
-            if (this.map.getTargetElement().querySelector("#geoline_ol_js_popup") === null) {
-                // Element für Overlay definieren
-                this.map.getTargetElement().insertAdjacentHTML('beforeend', '<div id="geoline_ol_js_popup"></div>');
-            }
-            /** @type {HTMLDivElement} */
-            const _overlayDIV = this.map.getTargetElement().querySelector("#geoline_ol_js_popup");
-
-            this.overlayLayer = new Overlay({
-                element: _overlayDIV,
-            });
-            this.map.addOverlay(this.overlayLayer);
-
-            let self = this;
-            this.map.on('click', function (evt) {
-                const featuredata = self.map.forEachFeatureAtPixel(
+        if (!this.overlayClickRegistered) {
+            this.overlayClickRegistered = true;
+            this.map.on('click', (evt) => {
+                const _overlayDIV = this.overlayLayer.getElement();
+                const featuredata = this.map.forEachFeatureAtPixel(
                     evt.pixel,
                     function (_feature, _layer) {
                         return {
@@ -1452,20 +1644,18 @@ class StmaOpenLayers {
                         };
                     },
                     {
-                        layerFilter: function (_layerCandidate) {
-                            //Filter, damit nur die Features gefunden werden, für die auch der Overlay aktiviert wurde.
-                            return self.overlayLayers.includes(_layerCandidate);
-                        }
+                        //Filter, damit nur die Features gefunden werden, für die auch der Overlay aktiviert wurde.
+                        layerFilter: (_layerCandidate) => this.overlayLayers.includes(_layerCandidate)
                     }
                 );
                 if (featuredata) {
-                    const _overlayFunction = self.overlayFunctions[self.overlayLayers.indexOf(featuredata.layer)];
+                    const overlayFunction = this.overlayFunctions[this.overlayLayers.indexOf(featuredata.layer)];
 
-                    self.overlayLayer.getElement().innerHTML =
+                    _overlayDIV.innerHTML =
                         '<div class="arrow"></div>' +
-                        '<div class="content">' + _overlayFunction(featuredata.feature) + '</div>';
+                        '<div class="content">' + overlayFunction(featuredata.feature) + '</div>';
 
-                    self.overlayLayer.setPosition(evt.coordinate);
+                    this.overlayLayer.setPosition(evt.coordinate);
                     _overlayDIV.style.display = 'block';
 
                     _overlayDIV.style.transform = "translate3d(-" + _overlayDIV.offsetWidth / 2 + "px, calc(-" + _overlayDIV.offsetHeight + "px - 0.5rem), 0px)";
@@ -1485,11 +1675,14 @@ class StmaOpenLayers {
     /**
      *    @description    gibt das OpenLayer-Map-Objekt zurück.<br/>
      *
-     *    @returns        {object} ol.Map<br/>
+     *    @returns        {Map} die OpenLayers-Karte
+     *
+     *    @throws         {Error} wenn keine Karte initialisiert ist
      *
      *    @since          v0.0
      */
     getMap() {
+        this._requireSession('getMap');
         return this.map;
     }
 

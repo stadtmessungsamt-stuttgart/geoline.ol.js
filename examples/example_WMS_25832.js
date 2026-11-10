@@ -10,12 +10,9 @@ mymap.initMap(
     {
         center: [513044, 5403167], // somewhere inside Stuttgart in EPSG:25832
         zoom: 16
-    },
-    {},
-    function () {
-        console.log("initMap wurde ausgeführt");
     }
 );
+console.log("initMap wurde ausgeführt");
 
 mymap.addStmaWMSLayer(
     "Base:A62_Luftbild_2009_EPSG25832",
@@ -30,8 +27,7 @@ mymap.addStmaWMSLayer(
             TRANSPARENT: true,
             STYLES: ""
         }
-    },
-    function (layer) {
-        console.log("STMA WMS OK", layer);
     }
-);
+).then((result) => result.ok
+    ? console.log("STMA WMS OK", result.value)
+    : console.warn(result.error.code, result.error.message));

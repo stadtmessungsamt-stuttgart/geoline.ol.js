@@ -15,6 +15,12 @@ describe('Lade alle Beispiele und prüfe sie', () => {
         });
     };
 
+    // Die Meldungen entstehen erst, nachdem geoline die abgewarteten Antworten verarbeitet hat; deshalb wiederholt prüfen.
+    const expectLogged = (...texts) => cy.wrap(null).should(() => {
+        const joined = messages.join('\n');
+        texts.forEach((text) => expect(joined, 'Konsole enthält erwartete Meldung').to.include(text));
+    });
+
     beforeEach(() => {
         // Browser-Cache über CDP (Chrome DevTools Protocol) leeren,
         // damit die Kacheln neu geladen werden
@@ -46,14 +52,7 @@ describe('Lade alle Beispiele und prüfe sie', () => {
         cy.wait('@loadWmtsCapabilities', {timeout: 30000});
         cy.wait('@loadMapTiles', {timeout: 30000});
 
-        // Prüfe, ob die gewünschte Konsolenausgabe erfolgt ist
-        const expectedText = 'addStmaBaseLayer (Basemap) wurde ausgeführt';
-        cy.wrap(null).then(() => {
-            const joined = messages.join('\n');
-            // Debug-Ausgabe im Cypress-Log
-            cy.log('Console messages collected:', joined);
-            expect(joined, 'Konsole enthält erwartete Meldung').to.include(expectedText);
-        });
+        expectLogged('addStmaBaseLayer (Basemap) wurde ausgeführt');
 
     });
 
@@ -75,22 +74,9 @@ describe('Lade alle Beispiele und prüfe sie', () => {
         cy.wait('@loadWmtsCapabilities', {timeout: 30000});
         cy.wait('@loadJson', {timeout: 30000});
 
-        // Prüfe, ob die gewünschte Konsolenausgabe erfolgt ist
-        let expectedText = 'Features aus GeoJSON hinzugefügt';
-        cy.wrap(null).then(() => {
-            const joined = messages.join('\n');
-            // Debug-Ausgabe im Cypress-Log
-            cy.log('Console messages collected:', joined);
-//            expect(joined, 'Konsole enthält erwartete Meldung').to.include(expectedText);
-        });
+        expectLogged('Features aus GeoJSON hinzugefügt');
 
-        expectedText = 'Features aus GeoJSON per URL hinzugefügt';
-        cy.wrap(null).then(() => {
-            const joined = messages.join('\n');
-            // Debug-Ausgabe im Cypress-Log
-            cy.log('Console messages collected:', joined);
-//            expect(joined, 'Konsole enthält erwartete Meldung').to.include(expectedText);
-        });
+        expectLogged('Features aus GeoJSON per URL hinzugefügt');
     });
 
 
@@ -132,21 +118,8 @@ describe('Lade alle Beispiele und prüfe sie', () => {
         cy.wait('@loadLayer', {timeout: 30000});
         cy.wait('@loadMapTiles', {timeout: 30000});
 
-        // Prüfe, ob die gewünschte Konsolenausgabe erfolgt ist
-        let expectedText = 'initMap wurde ausgeführt';
-        cy.wrap(null).then(() => {
-            const joined = messages.join('\n');
-            // Debug-Ausgabe im Cypress-Log
-            cy.log('Console messages collected:', joined);
-            expect(joined, 'Konsole enthält erwartete Meldung').to.include(expectedText);
-        });
-        expectedText = 'STMA WMTS OK';
-        cy.wrap(null).then(() => {
-            const joined = messages.join('\n');
-            // Debug-Ausgabe im Cypress-Log
-            cy.log('Console messages collected:', joined);
-            expect(joined, 'Konsole enthält erwartete Meldung').to.include(expectedText);
-        });
+        expectLogged('initMap wurde ausgeführt');
+        expectLogged('STMA WMTS OK');
     });
 
 
@@ -163,21 +136,8 @@ describe('Lade alle Beispiele und prüfe sie', () => {
         cy.wait('@loadConfig');
         cy.wait('@loadMapTiles', {timeout: 30000});
 
-        // Prüfe, ob die gewünschte Konsolenausgabe erfolgt ist
-        let expectedText = 'initMap wurde ausgeführt';
-        cy.wrap(null).then(() => {
-            const joined = messages.join('\n');
-            // Debug-Ausgabe im Cypress-Log
-            cy.log('Console messages collected:', joined);
-            expect(joined, 'Konsole enthält erwartete Meldung').to.include(expectedText);
-        });
-        expectedText = 'STMA WMS OK';
-        cy.wrap(null).then(() => {
-            const joined = messages.join('\n');
-            // Debug-Ausgabe im Cypress-Log
-            cy.log('Console messages collected:', joined);
-            expect(joined, 'Konsole enthält erwartete Meldung').to.include(expectedText);
-        });
+        expectLogged('initMap wurde ausgeführt');
+        expectLogged('STMA WMS OK');
     });
 
 
@@ -204,11 +164,6 @@ describe('Lade alle Beispiele und prüfe sie', () => {
             });
         });
 
-        // Die Callbacks laufen erst, nachdem geoline den Layer zur Karte hinzugefügt hat
-        cy.wrap(null).should(() => {
-            const joined = messages.join('\n');
-            expect(joined, 'Konsole enthält erwartete Meldung').to.include('STMA Stadtkarte OK');
-            expect(joined, 'Konsole enthält erwartete Meldung').to.include('STMA Luftbild OK');
-        });
+        expectLogged('STMA Stadtkarte OK', 'STMA Luftbild OK');
     });
 });
