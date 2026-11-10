@@ -24,6 +24,7 @@ import StyleIcon from "ol/style/Icon.js";
 import StyleStyle from "ol/style/Style.js";
 import {defaults as defaultControls} from 'ol/control.js';
 import {get as getProjection} from "ol/proj.js";
+import {isEmpty as isEmptyExtent} from "ol/extent.js";
 import {register} from 'ol/proj/proj4.js';
 
 import proj4 from "proj4";
@@ -31,6 +32,7 @@ import proj4 from "proj4";
 import {ok, fail} from './result.js';
 import {RequestCache} from './request-cache.js';
 import {parseConfig, stmaHostnames, serviceEntry, isHostOrSubdomain} from './config.js';
+import {parseGeoJSON} from './geojson.js';
 import {
     assertBoolean,
     assertCoordinateList,
@@ -64,7 +66,6 @@ import {
  *
  * @typedef {Object} Session
  * @property {AbortController} controller
- * @property {Set<ReturnType<typeof setInterval>>} intervals
  * @property {RequestCache} requests
  */
 
@@ -846,7 +847,7 @@ class StmaOpenLayers {
         }
 
         const controller = new AbortController();
-        this._session = {controller, intervals: new Set(), requests: new RequestCache(controller.signal)};
+        this._session = {controller, requests: new RequestCache(controller.signal)};
 
         // (25832) UTM-Projektion registrieren
         proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
@@ -942,7 +943,7 @@ class StmaOpenLayers {
     }
 
     /**
-     *    @description  gibt die Karte frei: bricht laufende Anfragen ab, entfernt Intervalle, Listener, Overlays und
+     *    @description  gibt die Karte frei: bricht laufende Anfragen ab, entfernt wartende Zooms, Listener, Overlays und
      *                  Caches und löst die Karte von ihrem Element. Offene Promises liefern ein Result mit dem Code
      *                  <code>ABORTED</code>; ihre Ergebnisse werden in keine Karte eingefügt.<br/>
      *                  Danach kann mit initMap() eine neue Karte aufgebaut werden. Mehrfacher Aufruf ist unschädlich.
@@ -959,8 +960,6 @@ class StmaOpenLayers {
         // Zuerst die Session lösen, damit Ergebnisse, die während des Abbruchs eintreffen, als veraltet gelten.
         this._session = null;
         session.controller.abort();
-        session.intervals.forEach((id) => clearInterval(id));
-        session.intervals.clear();
         this.map.dispose();
 
         this.map = null;
@@ -1466,54 +1465,57 @@ class StmaOpenLayers {
      * @returns {Result<LayerVector>}
      */
     _addGeoJSON(_geojson, _zoomTo, _style, session) {
+        const parsed = parseGeoJSON(_geojson);
+        if (!parsed.ok) {
+            return parsed;
+        }
+        const dataProjection = parsed.value;
+        if (getProjection(dataProjection) == null) {
+            return fail('PROJECTION_MISMATCH', "Die Projektion " + dataProjection + " des GeoJSON ist nicht bekannt.");
+        }
+
         let features;
         try {
-            let _projectionGeoJSON = "EPSG:4326";
-            //Wurde das Koordinatensystem angegeben?
-            if ("crs" in _geojson) {
-                if ("properties" in _geojson.crs) {
-                    if ("name" in _geojson.crs.properties) {
-                        _projectionGeoJSON = _geojson.crs.properties.name;
-                    }
-                }
-            }
-
-            //Bei urn:ogc:def:crs:OGC:1.3:CRS84 wird unter Verwendung von UTM(EPSG:25832) nicht korrekt transformiert.
-            if (_projectionGeoJSON === "urn:ogc:def:crs:OGC:1.3:CRS84") {
-                _projectionGeoJSON = "EPSG:4326";
-            }
-
-            if (getProjection(_projectionGeoJSON) == null) {
-                console.error("Projektion " + _projectionGeoJSON + " nicht gefunden. Es kann zu falscher Darstellung der Karte kommen");
-            }
-
-            features = this._getGeoJSONFormat(_projectionGeoJSON).readFeatures(_geojson);
+            features = this._getGeoJSONFormat(dataProjection).readFeatures(_geojson);
         } catch (err) {
             return fail('INVALID_DATA', "Das GeoJSON kann nicht gelesen werden.", err);
         }
 
-        const _vectorSource = new SourceVector({features});
+        const vectorSource = new SourceVector({features});
         const vectorLayer = new LayerVector({
             zIndex: 60,
-            source: _vectorSource,
+            source: vectorSource,
             style: _style
         });
-
         this.map.addLayer(vectorLayer);
 
-        if (_zoomTo === true) {
-            //warte bis View bereit ist.
-            const zoomToInterval = setInterval(() => {
-                if (this.map.getView().getZoom() !== undefined) {
-                    clearInterval(zoomToInterval);
-                    session.intervals.delete(zoomToInterval);
-                    this.map.getView().fit(_vectorSource.getExtent());
-                }
-            }, 500);
-            session.intervals.add(zoomToInterval);
+        const extent = vectorSource.getExtent();
+        if (_zoomTo === true && !isEmptyExtent(extent)) {
+            this._fitWhenReady(extent, session);
         }
-
         return ok(vectorLayer);
+    }
+
+    /**
+     * Passt den Ausschnitt an, sobald View und Kartengröße feststehen. Vorher würde fit() ohne Größe scheitern.
+     * Das Warten endet mit dispose(), weil map.dispose() die Listener entfernt.
+     *
+     * @param   {import('ol/extent.js').Extent} extent Ausschnitt
+     * @param   {Session} session Session beim Aufruf
+     * @returns {void}
+     */
+    _fitWhenReady(extent, session) {
+        const fit = () => this.map.getView().fit(extent);
+        if (this.map.getSize() != null && this.map.getView().isDef()) {
+            fit();
+            return;
+        }
+        // Gerendert wird erst, wenn Größe und View bereit sind
+        this.map.once('postrender', () => {
+            if (!this._isStale(session)) {
+                fit();
+            }
+        });
     }
 
     /**

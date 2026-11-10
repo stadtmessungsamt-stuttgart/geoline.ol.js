@@ -144,6 +144,14 @@ Antworten des Konfigurationsdienstes und manuell gesetzte Konfigurationen werden
 
 Im Konfigurationsabruf sendet geoline.ol.js im Parameter `url` nur noch Origin und Pfad der Seite, ohne Query und Fragment. Für Anwendungen ändert sich dadurch nichts.
 
+### GeoJSON wird geprüft
+
+`addGeoJSON` und `addGeoJSONfromURL` prüfen Struktur, Koordinaten und CRS, bevor sie einen Layer einfügen. Bei einem Fehler wird kein Layer eingefügt.
+
+- Ungültige Struktur oder Koordinaten melden `INVALID_DATA`. In 3.x warf `crs: null` einen `TypeError`; jetzt gilt wie bei fehlendem CRS EPSG:4326.
+- Eine unbekannte Projektion meldet `PROJECTION_MISMATCH`. In 3.x wurde nur geloggt und der Layer trotzdem eingefügt, meist an falscher Stelle.
+- Mit `_zoomTo` wartet die Karte, bis sie eine Größe hat, und zoomt nur auf nicht leere Daten. `dispose()` beendet das Warten.
+
 ### Lebenszyklus: `dispose()`
 
 Eine Instanz von `StmaOpenLayers` gehört zu genau einer Karte.
