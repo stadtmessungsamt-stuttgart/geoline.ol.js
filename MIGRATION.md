@@ -161,6 +161,14 @@ karte2.initMap(25832, {target: 'karte2'}, {}, {popupId: 'popup_karte2'});
 - Eine Karte, eigenes CSS auf `#geoline_ol_js_popup`: keine Änderung nötig.
 - Mehrere Karten: jede weitere Karte braucht eine eigene `popupId`. Ist die ID im Dokument schon vergeben oder kein String, wirft `initMap`. Eigenes CSS sollte die Klasse statt der ID verwenden.
 
+## Eigene Dienste brauchen CORS
+
+Dienstinformationen von ArcGIS-Servern lädt geoline.ol.js nicht mehr per JSONP, sondern per `fetch`. JSONP hat die Antwort als Script in der Anwendung ausgeführt. Einen Legacy-Modus gibt es nicht.
+
+- **Betroffen:** eigene ArcGIS-Dienste über `addEsriLayer` und eine eigene Konfigurations-URL im Konstruktor (`new StmaOpenLayers(configUrl)`). Die Dienste des Stadtmessungsamtes liefern die nötigen Header bereits.
+- **Voraussetzung:** Der Server antwortet mit `Access-Control-Allow-Origin` für den Origin der Anwendung (oder `*`). Cookies und HTTP-Authentifizierung werden nicht mitgesendet.
+- **Ohne CORS:** Das Result meldet `SERVICE_UNAVAILABLE`, die Browser-Konsole nennt die fehlenden Header. Für WMTS-Capabilities (`addWMTSLayer`) galt das schon in 3.x.
+
 ## `addStmaEsriFeatureLayer` entfällt
 
 Die Methode `addStmaEsriFeatureLayer(mapservice, layerId, styleFunction, callback)` ist entfernt. Sie war in 3.x nicht lauffähig: Der Ladevorgang brach mit `self._fetchConfig is not a function` ab, und im ESM-Build fehlte `require('jsonp')`.

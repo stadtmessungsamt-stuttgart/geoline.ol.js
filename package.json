@@ -15,7 +15,6 @@
   "style": "dist/geoline.ol.css",
   "dependencies": {
     "core-js": "^3.45.1",
-    "jsonp": "^0.2.1",
     "ol": "^10.6.1",
     "proj4": "^2.7.0"
   },

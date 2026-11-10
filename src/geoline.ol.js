@@ -27,9 +27,9 @@ import {get as getProjection} from "ol/proj.js";
 import {register} from 'ol/proj/proj4.js';
 
 import proj4 from "proj4";
-import jsonp from "jsonp";
 
 import {ok, fail} from './result.js';
+import {RequestCache} from './request-cache.js';
 import {
     assertBoolean,
     assertCoordinateList,
@@ -64,6 +64,7 @@ import {
  * @typedef {Object} Session
  * @property {AbortController} controller
  * @property {Set<ReturnType<typeof setInterval>>} intervals
+ * @property {RequestCache} requests
  */
 
 const DEFAULT_POPUP_ID = 'geoline_ol_js_popup';
@@ -169,6 +170,11 @@ class StmaOpenLayers {
     overlayLayers = []; //Layer, für die das Overlay aktiviert ist.
     overlayFunctions = []; //Funktionen der Layer, für die das Overlay aktiviert ist.
     overlayClickRegistered = false;
+    /**
+     * @private
+     * @type {globalThis.Map<string, FormatGeoJSON>}
+     */
+    geojsonFormats = new globalThis.Map();
 
     /** @type {Session|null} */
     _session = null;
@@ -329,61 +335,21 @@ class StmaOpenLayers {
     }
 
     /**
-     * JSONP with simple Promise cache to avoid duplicate network requests per URL
-     * @param {string} url URL des Dienstes, dient auch als Cache-Schlüssel
-     * @returns {Promise<any>}
-     */
-    _jsonpCached(url) {
-        const cached = this.map.get(url);
-        if (cached) return cached;
-        const p = new Promise((resolve, reject) => {
-            jsonp(url, null, (err, data) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve(data);
-            });
-        });
-        this.map.set(url, p);
-        return p;
-    }
-
-    /**
-     * Fetch text with simple Promise cache by URL (POST by default)
-     * @param {string} url URL des Dienstes, dient auch als Cache-Schlüssel
-     * @param {RequestInit} [options] Optionen für fetch
-     * @returns {Promise<string>}
-     */
-    _fetchTextCached(url, options = {method: 'POST'}) {
-        const cached = this.map.get(url);
-        if (cached) return cached;
-        const p = fetch(url, {...options, signal: this._session?.controller.signal}).then(r => {
-            if (!r.ok) throw new Error('Network response was not ok: ' + r.status);
-            return r.text();
-        }).catch(err => {
-            // On failure, drop cache to allow retry later
-            this.map.delete(url);
-            throw err;
-        });
-        this.map.set(url, p);
-        return p;
-    }
-
-    /**
      * Get a cached GeoJSON format instance for a specific dataProjection.
      * The instance is created with featureProjection set to the current map projection.
      * @param {string} dataProjection Projektion der GeoJSON-Daten, z. B. EPSG:4326
+     * @returns {FormatGeoJSON}
+     * @private
      */
     _getGeoJSONFormat(dataProjection) {
         const key = dataProjection + '->' + this.projection;
-        let fmt = this.map.get(key);
+        let fmt = this.geojsonFormats.get(key);
         if (!fmt) {
             fmt = new FormatGeoJSON({
                 dataProjection: dataProjection,
                 featureProjection: this.projection
             });
-            this.map.set(key, fmt);
+            this.geojsonFormats.set(key, fmt);
         }
         return fmt;
     }
@@ -404,11 +370,24 @@ class StmaOpenLayers {
      * @since       v0.0
      */
     _addEsriLayer(_url, _layerParams, _sourceParams, session) {
-        // Zwei Zweige in then(): Fehler beim Aufbau des Layers sind interne Fehler und bleiben Rejections.
-        return this._jsonpCached(_url + "?f=json").then(
-            (/** @type {AGSInfo} */ ags_info) => {
+        // Fehler beim Aufbau des Layers sind interne Fehler und bleiben Rejections.
+        return session.requests.fetchText(_url + "?f=json").then(
+            (response) => {
                 if (this._isStale(session)) {
                     return this._aborted();
+                }
+                if (!response.ok) {
+                    return response;
+                }
+                /** @type {AGSInfo} */
+                let ags_info;
+                try {
+                    ags_info = JSON.parse(response.value);
+                } catch (err) {
+                    return fail('INVALID_DATA', "Der Kartendienst " + _url + " liefert kein gültiges JSON.", err);
+                }
+                if (ags_info === null || typeof ags_info !== 'object') {
+                    return fail('INVALID_DATA', "Der Kartendienst " + _url + " liefert keine Dienstbeschreibung.");
                 }
                 if (ags_info.error !== undefined) {
                     return fail('SERVICE_ERROR', "Der Kartendienst " + _url + " meldet einen Fehler: " + ags_info.error.message, ags_info.error);
@@ -450,10 +429,7 @@ class StmaOpenLayers {
                 return ok(ags_info.singleFusedMapCache === true
                     ? this._initCachedLayer(_url, _layerParams, _sourceParams, ags_info)
                     : this._initDynamicLayer(_url, _layerParams, _sourceParams, ags_info));
-            },
-            (err) => this._isStale(session)
-                ? this._aborted()
-                : fail('SERVICE_UNAVAILABLE', "Der Kartendienst " + _url + " ist nicht erreichbar.", err)
+            }
         );
     }
 
@@ -479,11 +455,15 @@ class StmaOpenLayers {
         _layerParams = _layerParams ?? {};
         _sourceParams = _sourceParams ?? {};
 
-        return this._fetchTextCached(_url, {method: 'GET'}).then(
-            (xml) => {
+        return session.requests.fetchText(_url).then(
+            (response) => {
                 if (this._isStale(session)) {
                     return this._aborted();
                 }
+                if (!response.ok) {
+                    return response;
+                }
+                const xml = response.value;
 
                 let sourceParams;
                 try {
@@ -590,10 +570,7 @@ class StmaOpenLayers {
 
                 this.map.addLayer(layer);
                 return ok(layer);
-            },
-            (err) => this._isStale(session)
-                ? this._aborted()
-                : fail('SERVICE_UNAVAILABLE', "Die Capabilities von " + _url + " sind nicht abrufbar.", err)
+            }
         );
     }
 
@@ -933,7 +910,8 @@ class StmaOpenLayers {
             throw new Error("initMap: Die Popup-ID '" + popupId + "' ist im Dokument bereits vergeben. Für weitere Karten _customParams.popupId angeben.");
         }
 
-        this._session = {controller: new AbortController(), intervals: new Set()};
+        const controller = new AbortController();
+        this._session = {controller, intervals: new Set(), requests: new RequestCache(controller.signal)};
 
         // (25832) UTM-Projektion registrieren
         proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
@@ -1056,6 +1034,7 @@ class StmaOpenLayers {
         this.overlayLayers = [];
         this.overlayFunctions = [];
         this.overlayClickRegistered = false;
+        this.geojsonFormats.clear();
         this.config = null;
         this.configPromise = null;
         this.viewParams = null;
