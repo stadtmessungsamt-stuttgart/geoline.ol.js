@@ -2,6 +2,10 @@
 node_modules/
 demo/
 
+# Gebaute Artefakte: nur im npm-Paket, nicht im Repository
+dist/
+.pack/
+
 # Parcel Cache
 .cache
 .parcel-cache

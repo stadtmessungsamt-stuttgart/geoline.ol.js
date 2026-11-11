@@ -1,29 +1,10 @@
 const path = require('path');
-const fs = require('fs');
+const webpack = require('webpack');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
-const {execSync} = require('child_process');
+const {version} = require('./package.json');
 
-// Hilfsfunktion zum Ersetzen der Version in einer Datei
-function replaceVersionInFile(filePath) {
-    const version = process.env.npm_package_version;
-
-    // Prüfen ob Datei existiert
-    if (!fs.existsSync(filePath)) {
-        console.warn(`Datei nicht gefunden: ${filePath}`);
-        return;
-    }
-
-    try {
-        const content = fs.readFileSync(filePath, 'utf8');
-        const replaced = content.replace(/@version@/g, version);
-        fs.writeFileSync(filePath, replaced, 'utf8');
-        console.log(`✓ Version ${version} in ${filePath} ersetzt`);
-    } catch (error) {
-        console.error(`Fehler beim Ersetzen der Version in ${filePath}:`, error);
-    }
-}
-
+// Die Typdeklarationen erzeugt tsc im Script build-dist nach diesem Build (output.clean würde sie sonst löschen).
 module.exports = {
     mode: 'production',
     performance: {
@@ -78,21 +59,8 @@ module.exports = {
             filename: '[name].css',
         }),
 
-        // Nach Build die Version im erzeugten JS ersetzen
-        {
-            apply: (compiler) => {
-                compiler.hooks.done.tap('PostBuildTasks', () => {
-                    // 1) Version in dist JS ersetzen
-                    replaceVersionInFile('dist/geoline.ol.js');
-
-                    // 2) TypeScript-Declaration Files generieren
-                    execSync('npx tsc -p tsconfig.json', {stdio: 'inherit', shell: true});
-
-                    // 3) Version auch in d.ts aktualisieren (falls Datei existiert)
-                    replaceVersionInFile('dist/geoline.ol.d.ts');
-                });
-            }
-        },
+        // Version beim Kompilieren einsetzen, damit Bundle und Source Map übereinstimmen
+        new webpack.DefinePlugin({GEOLINE_VERSION: JSON.stringify(version)}),
     ],
     optimization: {
         minimizer: [

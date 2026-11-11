@@ -43,21 +43,32 @@ jobs:
       - name: Lint (oxlint, TSDoc-Pflicht für öffentliche Exporte)
         run: npm run lint
 
-      - name: Typecheck TS example as consumer (tsc, without skipLibCheck)
-        # Builds dist and checks the shipped .d.ts the way an external TypeScript project uses them
-        run: npm run typecheck-examples
+      - name: Build and pack
+        # Built once; every following step and the publish job use exactly this build
+        run: npm run pack-dist
 
-      - name: Run Cypress tests
-        # This script builds the example app, starts a web server and runs Cypress in Chrome
-        run: npm run cypress-run
-        env:
-          CI: true
+      - name: Install the package into an isolated consumer and typecheck it (tsc, without skipLibCheck)
+        run: npm run test-consumer
 
       - name: Run API tests (Cypress)
-        # Builds dist and tests the public API without example pages or dev server
-        run: npm run cypress-api
+        # Tests the public API of the built dist without example pages or dev server
+        run: npm run test-api
         env:
           CI: true
+
+      - name: Run E2E tests (Cypress)
+        # Starts the example server and runs Cypress in Chrome against the built dist
+        run: npm run test-e2e
+        env:
+          CI: true
+
+      - name: Keep the tested package for publishing
+        if: matrix.node == '24'
+        uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: .pack/*.tgz
+          if-no-files-found: error
 
   publish:
     name: Publish to npm
@@ -65,25 +76,21 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build package
-        run: |
-          npm run build-dist
+      - name: Download the tested package
+        uses: actions/download-artifact@v4
+        with:
+          name: package
+          path: package
 
       - name: Publish package to npm
-        run: npm publish --access public
+        # Publishes the tarball tested in the test job instead of building again
+        run: npm publish ./package/*.tgz --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

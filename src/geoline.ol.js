@@ -230,7 +230,8 @@ class StmaOpenLayers {
         }
         // Nur Origin und Pfad: Query und Fragment können Daten der Anwendung enthalten
         const params = new URLSearchParams({
-            v: "@version@",
+            // GEOLINE_VERSION setzt der Dist-Build beim Kompilieren ein
+            v: GEOLINE_VERSION,
             epsg: this.projection,
             url: typeof location !== 'undefined' ? location.origin + location.pathname : ''
         }).toString();

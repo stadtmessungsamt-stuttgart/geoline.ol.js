@@ -1,5 +1,5 @@
 import StmaOpenLayers from "@stadtmessungsamt-stuttgart/geoline.ol.js/dist/geoline.ol.js";
-import "@stadtmessungsamt-stuttgart/geoline.ol.js/src/geoline.ol.css";
+import "@stadtmessungsamt-stuttgart/geoline.ol.js/dist/geoline.ol.css";
 
 import styleIcon from "ol/style/Icon.js";
 import styleFill from "ol/style/Fill.js";

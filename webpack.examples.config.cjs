@@ -39,8 +39,8 @@ module.exports = {
     resolve: {
         extensions: ['.js', '.ts'],
         alias: {
-            // optional: Alias auf lokale SRC, damit die Beispiele wie in dev funktionieren
-            '@src': path.resolve(__dirname, 'src'),
+            // Die Beispiele importieren das Paket wie ein Verbraucher; hier zeigt der Name auf den frisch gebauten Stand im Repository
+            '@stadtmessungsamt-stuttgart/geoline.ol.js': __dirname,
         },
     },
     module: {

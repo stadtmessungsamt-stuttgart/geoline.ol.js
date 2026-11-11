@@ -18,7 +18,6 @@
     "proj4": "^2.7.0"
   },
   "devDependencies": {
-    "@stadtmessungsamt-stuttgart/geoline.ol.js": "file:./",
     "concurrently": "^10.0.7",
     "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.2",
@@ -43,16 +42,19 @@
   "license": "CC-BY-NC-SA-4.0",
   "scripts": {
     "audit": "npm audit --omit=dev",
-    "build-dist": "webpack --config webpack.dist.config.cjs --mode production",
-    "build-dev": "webpack --config webpack.dist.config.cjs --watch",
-    "build-examples": "npm run build-dist && webpack --config webpack.examples.config.cjs",
-    "serve-examples": "wait-on demo && webpack serve --config webpack.examples.config.cjs --port 8080 --open",
-    "deploy-gh-pages": "npm run build-examples && gh-pages --dist demo",
-    "cypress-open": "concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress open\"",
-    "cypress-run": "concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress run --browser chrome\"",
-    "cypress-api": "npm run build-dist && cypress run --config-file cypress.api.config.js --browser chrome",
-    "typecheck-examples": "npm run build-dist && tsc -p examples/tsconfig.json",
     "lint": "oxlint src",
-    "start-dev": "concurrently \"npm run build-dev\" \"webpack --config webpack.examples.config.cjs --watch\" \"npm run serve-examples\""
+    "build-dist": "webpack --config webpack.dist.config.cjs --mode production && tsc -p tsconfig.json",
+    "build-dev": "webpack --config webpack.dist.config.cjs --watch",
+    "pack-dist": "npm run build-dist && rm -rf .pack && mkdir .pack && npm pack --pack-destination .pack",
+    "build-examples": "npm run build-dist && webpack --config webpack.examples.config.cjs",
+    "serve-examples": "npm run build-dist && webpack serve --config webpack.examples.config.cjs --port 8080 --open",
+    "start-dev": "concurrently \"npm run build-dev\" \"webpack --config webpack.examples.config.cjs --watch\" \"npm run serve-examples\"",
+    "deploy-gh-pages": "npm run build-examples && gh-pages --dist demo",
+    "test-consumer": "node scripts/check-consumer.mjs",
+    "test-api": "cypress run --config-file cypress.api.config.js --browser chrome",
+    "test-e2e": "concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress run --browser chrome\"",
+    "cypress-api": "npm run build-dist && npm run test-api",
+    "cypress-run": "npm run build-dist && npm run test-e2e",
+    "cypress-open": "npm run build-dist && concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress open\""
   }
 }

@@ -189,6 +189,13 @@ Dienstinformationen von ArcGIS-Servern lädt geoline.ol.js nicht mehr per JSONP,
 - **Voraussetzung:** Der Server antwortet mit `Access-Control-Allow-Origin` für den Origin der Anwendung (oder `*`). Cookies und HTTP-Authentifizierung werden nicht mitgesendet.
 - **Ohne CORS:** Das Result meldet `SERVICE_UNAVAILABLE`, die Browser-Konsole nennt die fehlenden Header. Für WMTS-Capabilities (`addWMTSLayer`) galt das schon in 3.x.
 
+## Gebaute Dateien nur noch über npm
+
+`dist/` liegt nicht mehr im Git-Repository. Die Pfade im npm-Paket bleiben gleich.
+
+- **Betroffen:** Installation direkt aus GitHub (`github:stadtmessungsamt-stuttgart/geoline.ol.js`) sowie Einbindung über `raw.githubusercontent.com` oder jsDelivr `gh/…`.
+- **Umstellen auf:** das npm-Paket bzw. jsDelivr `npm/…` oder unpkg, jeweils mit fester Hauptversion.
+
 ## `addStmaEsriFeatureLayer` entfällt
 
 Die Methode `addStmaEsriFeatureLayer(mapservice, layerId, styleFunction, callback)` ist entfernt. Sie war in 3.x nicht lauffähig: Der Ladevorgang brach mit `self._fetchConfig is not a function` ab, und im ESM-Build fehlte `require('jsonp')`.

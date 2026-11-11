@@ -21,18 +21,17 @@ cd geoline.ol.js
 
 ## Abhängigkeiten installieren
 ```
-npm install
+npm ci
 ```
 
-Hinweis: Für reproduzierbare Builds kann auch `npm ci` verwendet werden (erfordert vorhandene package-lock.json).
+`npm ci` installiert genau die Versionen aus `package-lock.json`. `npm install` nur verwenden, um Abhängigkeiten bewusst zu ändern.
+
+`dist/` liegt nicht im Repository. Die Scripts, die es brauchen, bauen es vorher selbst.
 
 ## Beispiele lokal bauen und serven (Schnellstart)
 Die Beispiele befinden sich unter `examples/` und werden in den Ordner `demo/` gebündelt. Ein Webpack Dev Server stellt diese anschließend auf Port 8080 bereit.
 
-Bei der Entwicklung in der `geoline.ol.js` muss darauf geachtet werden, 
-dass in den Beispielen das Modul reguläre über `import StmaOpenLayers from "@stadtmessungsamt-stuttgart/geoline.ol.js/dist/geoline.ol.js";` eingebunden wird.
-Das bedeutet, dass Änderungen an der Datei erst durch den "" Prozess laufen müssen.
-Je nach Leistung des Entwicklungssystems kann es etwas dauern, bis die Änderungen "publiziert" wurden und sich die Seite im Browser aktualisiert.
+Die Beispiele importieren das Paket wie ein Verbraucher (`@stadtmessungsamt-stuttgart/geoline.ol.js/dist/…`). Der Name zeigt über einen Alias in `webpack.examples.config.cjs` auf den gebauten Stand im Repository. Änderungen in `src/` erscheinen deshalb erst, nachdem `dist/` neu gebaut ist; `npm run start-dev` erledigt das im Watch-Modus.
 
 - Starten:
 ```
@@ -43,9 +42,12 @@ npm run start-dev
   - oder die einzelnen Beispielseiten in `demo/` (z. B. `example_WMS_25832.html`).
 
 Relevante Scripts (siehe package.json):
-- `npm run build-examples` – bundelt alle Beispiel-JS/TS-Dateien nach `demo/`
-- `npm run serve-examples` – startet den Webpack Dev Server auf Port 8080
-- `npm run examples` – startet den Dev Server (baut dabei automatisch)
+- `npm run build-dist` – baut `dist/` (webpack, danach Typprüfung und `.d.ts` mit tsc)
+- `npm run pack-dist` – baut `dist/` und packt das npm-Paket nach `.pack/`
+- `npm run test-consumer` – installiert das Paket aus `.pack/` in ein leeres Projekt und prüft dort das TS-Beispiel
+- `npm run build-examples` – baut `dist/` und bündelt alle Beispiele nach `demo/`
+- `npm run serve-examples` – baut `dist/` und startet den Webpack Dev Server auf Port 8080
+- `npm run cypress-api` / `npm run cypress-run` – bauen `dist/` und starten die API- bzw. E2E-Tests; `test-api` und `test-e2e` testen ohne erneuten Build
 
 ## Entwicklung ohne lokale Node-Installation (Docker)
 Folgendes Kommando erzeugt einen Docker-Container und startet die Demo unter Port 8080:
@@ -60,7 +62,7 @@ docker run -it --rm --name geoline-ol-js \
 ```
 Voraussetzungen:
 - Docker installiert und lauffähig
-- Der aktuelle Projektordner wird als Volume eingebunden; Änderungen an den Beispielen erfordern ggf. ein erneutes `npm run examples` im Container-Lauf (das Script erledigt das automatisch pro Start).
+- Der aktuelle Projektordner wird als Volume eingebunden; `npm run start-dev` baut `dist/` und die Beispiele bei Änderungen neu.
 
 ## Cypress-Tests ausführen
 Die Cypress-Tests erwarten, dass die Demo auf Port 8080 läuft und bauen/serven diese automatisch in einem separaten Prozess.
@@ -93,7 +95,8 @@ Troubleshooting:
 
 ## Nützliche Ordner
 - `src/` – Bibliotheksquellcode
-- `dist/` – gebaute Bibliotheksartefakte (JS, CSS, Typdefinitionen)
+- `dist/` – gebaute Bibliotheksartefakte (JS, CSS, Typdefinitionen); nicht im Repository, nur im npm-Paket
+- `.pack/` – gepacktes npm-Paket aus `npm run pack-dist`
 - `examples/` – Beispiel-HTML/JS/TS-Dateien
 - `demo/` – generiertes Ausgabeverzeichnis der Beispiele
 - `cypress/` – End-to-End-Tests
@@ -104,12 +107,11 @@ Dieser Abschnitt beschreibt, wie ein neues Release der Bibliothek erstellt und a
 Empfohlener Ablauf:
 1. Lokal testen und bauen
    - Sicherstellen, dass alle Änderungen committet sind und die Beispiele/Tests lokal funktionieren:
-     - `npm install`
+     - `npm ci`
      - `npm run serve-examples` (optional zur Sichtprüfung)
-     - `npm run cypress-run` (führt E2E-Tests headless aus)
+     - `npm run cypress-api` und `npm run cypress-run`
 2. Version anheben
-   - Version in `package.json` anheben
-   - `npm run build-dist` ausführen
+   - Version in `package.json` anheben (`npm version X.Y.Z --no-git-tag-version`)
    - Änderungen commiten
    - Tag erstellen (Als Tag-Namen das Schema `X.Y.Z` passend zur `package.json` verwenden.
 3. Änderungen pushen
@@ -121,9 +123,9 @@ Empfohlener Ablauf:
    - Optional: Release Notes hinzufügen (Kurzbeschreibung der Änderungen) und auf "Publish release" klicken.
 5. Automatischen Publish abwarten
    - Der Workflow `.github/workflows/main.yml` startet bei veröffentlichtem Release:
-     - Führt Cypress-Tests aus
-     - Baut das Paket (`npm run build-dist`)
-     - Veröffentlicht auf npm (`npm publish --access public`)
+     - Baut und packt das Paket einmal (`npm run pack-dist`)
+     - Prüft genau dieses Paket (Verbrauchertest, API- und E2E-Tests)
+     - Veröffentlicht dieses Paket auf npm
    - Den Status im Tab "Actions" verfolgen. Bei Erfolg ist die Version auf npm verfügbar.
 
 Hinweise:
