@@ -10,7 +10,7 @@ mymap.initMap(
     },
     {
         center: [513044, 5403167], // somewhere inside Stuttgart in EPSG:25832
-        zoom: 16
+        zoom: 5
     }
 );
 console.log("initMap wurde ausgeführt");

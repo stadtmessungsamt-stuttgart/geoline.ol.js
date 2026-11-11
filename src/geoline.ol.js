@@ -6,6 +6,7 @@ import Feature from "ol/Feature.js";
 import Map from "ol/Map.js";
 import Overlay from "ol/Overlay.js";
 import TileGrid from "ol/tilegrid/TileGrid.js";
+import WMTSTileGrid from "ol/tilegrid/WMTS.js";
 import View from "ol/View.js";
 import ControlAttribution from "ol/control/Attribution.js";
 import FormatGeoJSON from "ol/format/GeoJSON.js";
@@ -72,6 +73,21 @@ import {
 const DEFAULT_POPUP_ID = 'geoline_ol_js_popup';
 
 /**
+ * Auflösungen der Stuttgarter Kachelmatrix Stuttgart_UTM_CRS_oL (m/px). Standard für EPSG:25832, damit die Zoomstufen
+ * unabhängig von den eingebundenen Layern gleich bleiben und die Kacheln der Basiskarten unskaliert erscheinen.
+ */
+const STMA_UTM_RESOLUTIONS = [112, 56, 28, 14, 7, 2.8, 1.4, 0.7, 0.28, 0.14];
+
+/**
+ * Standards der View je unterstützter Projektion; Mittelpunkt ist jeweils Stuttgart. Angaben in _viewParams gehen vor.
+ * @type {Object.<number, import('ol/View.js').ViewOptions>}
+ */
+const VIEW_DEFAULTS = {
+    25832: {center: [513785, 5402232], zoom: 2, resolutions: STMA_UTM_RESOLUTIONS, constrainResolution: true},
+    3857: {center: [1022761, 6236421], zoom: 12},
+};
+
+/**
  * @typedef {Object} AGSSpatialReference
  * @property {number} [wkid]
  * @property {number} [latestWkid]
@@ -122,7 +138,6 @@ class StmaOpenLayers {
     config = null;
     configUrl = null;
     configPromise = null;
-    viewParams = null;
     tileLoadFunction = null;
     map = null;
     projection = null;
@@ -331,34 +346,17 @@ class StmaOpenLayers {
                     }
                 }
 
-                //AGS Kartendienst von Esri?
+                //AGS Kartendienst von Esri? Der Copyright-Vermerk muss immer sichtbar sein
                 if (isHostOrSubdomain(url.hostname, "arcgisonline.com") || isHostOrSubdomain(url.hostname, "arcgis.com")) {
-                    //Der Copyright-Vermerk muss immer sichtbar sein
-                    const _attributionControl = this.map.getControls().getArray().filter(function (_control) {
-                        return (_control instanceof ControlAttribution);
-                    })[0];
-                    _attributionControl.setCollapsible(false);
-                    _attributionControl.setCollapsed(false);
-                }
-
-                //spatialReference korrigieren für 10.0
-                if (ags_info.currentVersion === 10.05 && ags_info.spatialReference.latestWkid == null) {
-                    switch (ags_info.spatialReference.wkid) {
-                        case 102100:
-                            ags_info.spatialReference.latestWkid = 3857;
-                            break;
-                    }
-                }
-
-                //spatialReference überprüfen
-                if (this.projection !== "EPSG:" + ags_info.spatialReference.wkid && this.projection !== "EPSG:" + ags_info.spatialReference.latestWkid) {
-                    console.warn("Projektion der Karte und des Kartendienstes stimmen nicht überein. Karte: " + this.projection + ", Kartendienst: EPSG:", ags_info.spatialReference.wkid + " / EPSG:" + ags_info.spatialReference.latestWkid, _url);
+                    const attribution = this.map.getControls().getArray().find((control) => control instanceof ControlAttribution);
+                    attribution?.setCollapsible(false);
+                    attribution?.setCollapsed(false);
                 }
 
                 //Ist es ein gecachter Dienst? -> gecachten, sonst dynamischen Dienst hinzufügen
-                return ok(ags_info.singleFusedMapCache === true
+                return ags_info.singleFusedMapCache === true
                     ? this._initCachedLayer(_url, _layerParams, _sourceParams, ags_info)
-                    : this._initDynamicLayer(_url, _layerParams, _sourceParams, ags_info));
+                    : ok(this._initDynamicLayer(_url, _layerParams, _sourceParams, ags_info));
             }
         );
     }
@@ -417,43 +415,30 @@ class StmaOpenLayers {
                 if (sourceParams.crossOrigin == null) sourceParams.crossOrigin = 'anonymous';
                 if (sourceParams.wrapX == null) sourceParams.wrapX = true;
 
-                // Layer-/View-Projektion ermitteln
-                const layerProj = sourceParams.projection || getProjection(this.projection);
-                const view = this.map.getView();
-                const viewProj = view?.getProjection?.() || getProjection(this.projection);
-
-                // *** Wichtig: WMTS kann nicht reprojiziert werden → bei Mismatch überspringen ***
-                const sameProj = layerProj?.getCode?.() === viewProj?.getCode?.();
-                if (!sameProj) {
+                // WMTS-Kacheln werden nicht reprojiziert (Entscheidung offen, Rückfrage R4 an das Stadtmessungsamt)
+                const mapProjection = this.map.getView().getProjection();
+                const layerProj = sourceParams.projection ? getProjection(sourceParams.projection) : mapProjection;
+                if (layerProj?.getCode() !== mapProjection.getCode()) {
                     return fail('PROJECTION_MISMATCH',
-                        "Der WMTS-Layer " + _layerName + " liegt in " + layerProj?.getCode?.() + ", die Karte in " +
-                        viewProj?.getCode?.() + ". WMTS-Kacheln werden nicht reprojiziert.");
+                        "Der WMTS-Layer " + _layerName + " liegt in " + layerProj?.getCode() + ", die Karte in " +
+                        mapProjection.getCode() + ". WMTS-Kacheln werden nicht reprojiziert.");
                 }
 
-                // --- origin fix NUR für WebMercatorQuad ---
-                try {
-                    if (sourceParams.matrixSet === 'WebMercatorQuad' && sourceParams.tileGrid) {
-                        const tg = sourceParams.tileGrid;
-                        const resolutions = tg.getResolutions();
-                        const matrixIds = (typeof tg.getMatrixIds === 'function' && tg.getMatrixIds())
-                            ? tg.getMatrixIds()
-                            : resolutions.map((_, z) => String(z));
-
-                        const extent = getProjection('EPSG:3857').getExtent();
-                        const topLeft = [extent[0], extent[3]]; // minX, maxY
-
-                        const tileSize = typeof tg.getTileSize === 'function' ? tg.getTileSize(0) : 256;
-                        const WMTSGridClass = tg.constructor;
-
-                        sourceParams.tileGrid = new WMTSGridClass({
-                            origin: topLeft,
+                // GeoServer gibt den TopLeftCorner für urn:ogc:def:crs:EPSG::3857 in der Achsfolge Nord/Ost an, OpenLayers
+                // liest für EPSG:3857 Ost/Nord. Nur dann die Ursprünge tauschen; alles andere aus den Capabilities bleibt.
+                const tileGrid = sourceParams.tileGrid;
+                if (mapProjection.getCode() === 'EPSG:3857' && tileGrid != null) {
+                    const resolutions = tileGrid.getResolutions();
+                    const origins = resolutions.map((_, z) => tileGrid.getOrigin(z));
+                    if (origins.every(([x, y]) => x > 0 && y < 0)) {
+                        sourceParams.tileGrid = new WMTSTileGrid({
+                            origins: origins.map(([x, y]) => [y, x]),
                             resolutions,
-                            matrixIds,
-                            tileSize
+                            matrixIds: tileGrid.getMatrixIds(),
+                            tileSizes: resolutions.map((_, z) => tileGrid.getTileSize(z)),
+                            extent: tileGrid.getExtent() ?? undefined
                         });
                     }
-                } catch (e) {
-                    console.warn('[WMTS] Origin correction skipped:', e);
                 }
 
                 // STMA-spezifisch (REST-Template, Attribution, zIndex)
@@ -483,20 +468,6 @@ class StmaOpenLayers {
                     ..._layerParams,
                     source: new SourceWMTS(sourceParams)
                 });
-
-                // View NICHT auf andere Projektion umstellen – nur Resolutions anpassen
-                const resolutions = sourceParams.tileGrid.getResolutions();
-                const center = view.getCenter() ?? this.viewParams?.center;
-                const zoom = view.getZoom() ?? this.viewParams?.zoom;
-
-                this.map.setView(new View({
-                    ...this.viewParams,
-                    center,
-                    zoom,
-                    projection: viewProj,           // unverändert lassen
-                    resolutions,
-                    constrainResolution: true
-                }));
 
                 this.map.addLayer(layer);
                 return ok(layer);
@@ -605,15 +576,6 @@ class StmaOpenLayers {
             layer = new LayerImage(layerParams);
         }
 
-        //View konfigurieren, falls diese noch nicht konfiguriert wurde
-        if (this.map.getView().getProjection().getCode() !== this.projection) {
-            this.map.setView(new View({
-                ...this.viewParams,
-                ...{constrainResolution: true}
-            }));
-        }
-
-        //Layer hinzufügen
         this.map.addLayer(layer);
         return layer;
     }
@@ -629,50 +591,44 @@ class StmaOpenLayers {
      *
      * @param       {AGSInfo} ags_info JSON-Objekt mit den Karteneigenschaften (von ../MapServer?f=json)
      *
-     * @returns     {Layer}
+     * @returns     {Result<Layer>}
      *
      * @since v0.0
      */
     _initCachedLayer(_url, _layerParams, _sourceParams, ags_info) {
-        let resolutions = [];
-        ags_info.tileInfo.lods.forEach(function (lod) {
-            resolutions.push(lod.resolution);
-        });
+        const tileInfo = ags_info.tileInfo;
+        const fullExtent = ags_info.fullExtent;
+        const lods = tileInfo?.lods;
+        if (!Array.isArray(lods) || lods.length === 0 || tileInfo.origin == null || fullExtent == null
+            || !Number.isInteger(tileInfo.rows) || !Number.isInteger(tileInfo.cols)) {
+            return fail('INVALID_DATA', "Der gecachte Kartendienst " + _url + " liefert keine vollständigen Kachelinformationen (tileInfo, fullExtent).");
+        }
+        // Projektion des Dienstes; die Karte behält ihre eigene, OpenLayers reprojiziert die Kacheln bei Bedarf
+        const wkid = ags_info.spatialReference?.latestWkid ?? ags_info.spatialReference?.wkid;
+        // ArcGIS 10.0 meldet Web Mercator teils noch als 102100
+        const serviceProjection = getProjection("EPSG:" + (wkid === 102100 ? 3857 : wkid));
+        if (wkid == null || serviceProjection == null) {
+            return fail('PROJECTION_MISMATCH', "Die Projektion " + wkid + " des Kartendienstes " + _url + " ist nicht bekannt.");
+        }
 
-        const params = {
-            origin: [ags_info.tileInfo.origin.x, ags_info.tileInfo.origin.y],
-            extent: [ags_info.fullExtent.xmin, ags_info.fullExtent.ymin, ags_info.fullExtent.xmax, ags_info.fullExtent.ymax],
+        const tileGrid = new TileGrid({
+            origin: [tileInfo.origin.x, tileInfo.origin.y],
+            extent: [fullExtent.xmin, fullExtent.ymin, fullExtent.xmax, fullExtent.ymax],
             minZoom: 0,
-            resolutions: resolutions,
-            tileSize: [ags_info.tileInfo.rows, ags_info.tileInfo.cols]
-        };
-        const tileGrid = new TileGrid(params);
-
-        //View konfigurieren, falls diese noch nicht konfiguriert wurde
-        if (this.map.getView().getProjection().getCode() !== this.projection) {
-            this.map.setView(new View({
-                ...this.viewParams,
-                ...{resolutions: resolutions, constrainResolution: true}
-            }));
-        }
-
-        //Projektion ermitteln
-        if (ags_info.spatialReference.latestWkid != null) {
-            this.projection = ags_info.spatialReference.latestWkid;
-        } else {
-            this.projection = ags_info.spatialReference.wkid;
-        }
+            resolutions: lods.map((lod) => lod.resolution),
+            // OpenLayers erwartet [Breite, Höhe], ArcGIS liefert Spalten (Breite) und Zeilen (Höhe) getrennt
+            tileSize: [tileInfo.cols, tileInfo.rows]
+        });
 
         //sourceParams
         let sourceParams = {
             minZoom: 0
         };
 
-        //ToDo: XYZ-Dienst vorsehen? Anderer Server + Instanz?
         //diese Parameter können nicht überdefiniert werden.
         let predefinedSourceParams = {
             tileGrid: tileGrid,
-            projection: getProjection("EPSG:" + this.projection),
+            projection: serviceProjection,
             attributions: ags_info.copyrightText,
             url: _url + '/tile/{z}/{y}/{x}'
         };
@@ -712,7 +668,7 @@ class StmaOpenLayers {
 
         //Layer hinzufügen
         this.map.addLayer(layer);
-        return layer;
+        return ok(layer);
     }
 
     /**
@@ -826,6 +782,9 @@ class StmaOpenLayers {
             throw new Error("initMap: Die Karte ist bereits initialisiert. Vorher dispose() aufrufen.");
         }
         assertInteger(_epsgCode, '_epsgCode', 'initMap');
+        if (!(_epsgCode in VIEW_DEFAULTS)) {
+            throw new TypeError("initMap: _epsgCode muss 25832 oder 3857 sein, erhalten: " + _epsgCode + ".");
+        }
         assertOptionalObject(_mapParams, '_mapParams', 'initMap');
         assertOptionalObject(_viewParams, '_viewParams', 'initMap');
         assertOptionalObject(_customParams, '_customParams', 'initMap');
@@ -850,19 +809,12 @@ class StmaOpenLayers {
         const controller = new AbortController();
         this._session = {controller, requests: new RequestCache(controller.signal)};
 
-        // (25832) UTM-Projektion registrieren
+        // UTM-Projektion registrieren; EPSG:3857 und EPSG:4326 kennt OpenLayers selbst
         proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
         register(proj4);
 
-        // (31467) GK-Projektion registrieren (falls benötigt)
-        proj4.defs("EPSG:31467", "+proj=tmerc +lat_0=0 +lon_0=9 +k=1 +x_0=3500000 +y_0=0 +ellps=bessel +towgs84=598.1,73.7,418.2,0.202,0.045,-2.455,6.7 +units=m +no_defs");
-        register(proj4);
-
-        // Karten-Projektion festlegen (NICHT später überschreiben)
+        // Projektion der Karte; sie ändert sich bis dispose() nicht, Dienste in anderer Projektion werden reprojiziert oder abgewiesen
         this.projection = "EPSG:" + _epsgCode;
-        if (getProjection(this.projection) == null) {
-            console.error("Projektion " + this.projection + " nicht gefunden. Es kann zu falscher Darstellung der Karte kommen");
-        }
 
         // Custom-Parameter übernehmen
         if (customParams.tileLoadFunction) {
@@ -895,6 +847,10 @@ class StmaOpenLayers {
             ...predefinedMapParams
         };
 
+        // controls: null schaltet die Bedienelemente ab; die Attribution bleibt, weil die Quellenangabe Pflicht ist
+        if (mapParams.controls === null) {
+            mapParams.controls = [];
+        }
         // Attribution-Control sicherstellen (z. B. für Esri-Dienste)
         if (mapParams.controls != null) {
             let hasAttribution = false;
@@ -911,16 +867,12 @@ class StmaOpenLayers {
             }
         }
 
-        // View-Parameter aufbauen (mit deiner gewünschten Projektion)
-        this.viewParams = {
-            center: [513785, 5402232], // Default Stuttgart
-            zoom: 2,
+        // Die View entsteht einmal und wird von keinem Layer ersetzt; eigene Angaben in _viewParams bleiben erhalten
+        mapParams.view = new View({
+            ...VIEW_DEFAULTS[_epsgCode],
             ..._viewParams,
             projection: getProjection(this.projection)
-        };
-
-        // >>> WICHTIG: View direkt an die Map geben (verhindert OL-Default EPSG:3857)
-        mapParams.view = new View(this.viewParams);
+        });
 
         // Map erzeugen
         this.map = new Map(mapParams);
@@ -971,7 +923,6 @@ class StmaOpenLayers {
         this.geojsonFormats.clear();
         this.config = null;
         this.configPromise = null;
-        this.viewParams = null;
         this.tileLoadFunction = null;
         this.projection = null;
     }

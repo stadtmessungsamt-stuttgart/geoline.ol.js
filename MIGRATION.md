@@ -201,6 +201,23 @@ karte2.initMap(25832, {target: 'karte2'}, {}, {popupId: 'popup_karte2'});
 - Eine Karte, eigenes CSS auf `#geoline_ol_js_popup`: keine Änderung nötig.
 - Mehrere Karten: jede weitere Karte braucht eine eigene `popupId`. Ist die ID im Dokument schon vergeben oder kein String, wirft `initMap`. Eigenes CSS sollte die Klasse statt der ID verwenden.
 
+## Ansicht und Projektion der Karte
+
+`initMap` legt die View einmal fest; kein Layer ersetzt sie mehr. In 3.x setzte der erste gecachte ArcGIS-, WMTS- oder WMS-Layer eine neue View. Zoomstufen, Mittelpunkt und eigene `_viewParams` hingen dann davon ab, welcher Dienst zuerst antwortete. `getMap().getView()` liefert jetzt bis `dispose()` dasselbe Objekt.
+
+- **Zoomstufen in EPSG:25832** folgen der Kachelmatrix `Stuttgart_UTM_CRS_oL` der Stadtmessungsamt-Dienste, Standard ist Zoom 2:
+
+  | Zoom | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | m/Pixel | 112 | 56 | 28 | 14 | 7 | 2,8 | 1,4 | 0,7 | 0,28 | 0,14 |
+
+  Mit einem gecachten ArcGIS-Dienst als erstem Layer ändert sich der Ausschnitt in 3.x-Anwendungen kaum (vorher 105,83 … 0,13 m/Pixel). Wer nur WMS oder GeoJSON nutzte, bekam in 3.x die Standardstufen von OpenLayers; dort `zoom` neu wählen, z. B. 16 (2,4 m/Pixel) → 5. Eigene `resolutions` in `_viewParams` sind weiter möglich.
+- **EPSG:3857** behält die Standardstufen von OpenLayers und ist ohne eigene Angaben auf Stuttgart zentriert (Zoom 12).
+- **Nur noch EPSG:25832 und EPSG:3857:** Die Registrierung von EPSG:31467 (Gauß-Krüger) entfällt. Für andere Codes wirft `initMap` einen `TypeError`.
+- **Dienste in anderer Projektion:** Gecachte ArcGIS-Dienste werden von OpenLayers in die Projektion der Karte umgerechnet; die Karte behält ihre Projektion. In 3.x wurde `projection` mit der WKID des Dienstes überschrieben. Eine unbekannte WKID meldet `PROJECTION_MISMATCH`, fehlende Kachelinformationen melden `INVALID_DATA`, jeweils ohne Layer. WMTS-Layer in anderer Projektion melden `PROJECTION_MISMATCH`.
+- **Kachelgröße:** Nicht quadratische ArcGIS-Kacheln werden als Breite × Höhe gelesen; in 3.x waren Breite und Höhe vertauscht.
+- **`controls: null`** schaltet alle Bedienelemente ab, die Quellenangabe bleibt.
+
 ## Eigene Dienste brauchen CORS
 
 Dienstinformationen von ArcGIS-Servern lädt geoline.ol.js nicht mehr per JSONP, sondern per `fetch`. JSONP hat die Antwort als Script in der Anwendung ausgeführt. Einen Legacy-Modus gibt es nicht.
