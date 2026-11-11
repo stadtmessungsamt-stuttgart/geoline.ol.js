@@ -1,5 +1,6 @@
-import StmaOpenLayers from "@stadtmessungsamt-stuttgart/geoline.ol.js/dist/geoline.ol.js";
-import "@stadtmessungsamt-stuttgart/geoline.ol.js/dist/geoline.ol.css";
+import StmaOpenLayers from "@stadtmessungsamt-stuttgart/geoline.ol.js";
+import "ol/ol.css";
+import "@stadtmessungsamt-stuttgart/geoline.ol.js/geoline.ol.css";
 
 import MousePosition from 'ol/control/MousePosition.js';
 import Zoom from 'ol/control/Zoom.js';

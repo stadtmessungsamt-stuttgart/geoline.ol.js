@@ -57,6 +57,22 @@ describe('Lade alle Beispiele und prüfe sie', () => {
     });
 
 
+    it('Beispiel: example_OpenLayers_gemeinsam_25832.html', () => {
+        cy.intercept('https://gis5.stuttgart.de/geoline/geoline.config/config.aspx').as('loadConfig');
+        cy.intercept('https://geoserver.stuttgart.de/geoserver/gwc/service/wmts/rest/Base:Basemap_EPSG25832/default/Stuttgart_UTM_CRS_oL/**').as('loadMapTiles');
+
+        cy.visit('/example_OpenLayers_gemeinsam_25832.html');
+        cy.wait('@loadConfig');
+        cy.wait('@loadMapTiles', {timeout: 30000});
+
+        expectLogged('addStmaBaseLayer (Basemap) wurde ausgeführt', 'Eigener OpenLayers-Layer hinzugefügt',
+            'Eigenes OpenLayers-Control hinzugefügt', 'Eigenes OpenLayers-Overlay hinzugefügt');
+        // Control und Overlay der Anwendung erscheinen in der Karte von Geoline
+        cy.get('.ol-scale-line').should('be.visible');
+        cy.get('.ol-overlay-container #hinweis').should('be.visible');
+    });
+
+
     it('Beispiel: example_UTM_25832_mit_GeoJSON.html', () => {
 
         cy.intercept('https://gis5.stuttgart.de/geoline/geoline.config/config.aspx').as('loadConfig');

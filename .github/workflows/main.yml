@@ -47,7 +47,7 @@ jobs:
         # Built once; every following step and the publish job use exactly this build
         run: npm run pack-dist
 
-      - name: Install the package into an isolated consumer and typecheck it (tsc, without skipLibCheck)
+      - name: Consumer tests with the packed package (tsc bundler/nodenext, Webpack 5, Vite)
         run: npm run test-consumer
 
       - name: Run API tests (Cypress)

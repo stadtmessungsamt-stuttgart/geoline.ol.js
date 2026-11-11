@@ -5,6 +5,8 @@ demo/
 # Gebaute Artefakte: nur im npm-Paket, nicht im Repository
 dist/
 .pack/
+.consumers/
+consumers/*/dist/
 
 # Parcel Cache
 .cache

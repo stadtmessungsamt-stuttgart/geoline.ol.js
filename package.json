@@ -6,16 +6,24 @@
   "type": "module",
   "files": [
     "dist",
-    "src",
     "LICENSE",
     "README.md"
   ],
   "main": "dist/geoline.ol.js",
   "types": "dist/geoline.ol.d.ts",
   "style": "dist/geoline.ol.css",
-  "dependencies": {
-    "ol": "^10.6.1",
-    "proj4": "^2.7.0"
+  "exports": {
+    ".": {
+      "types": "./dist/geoline.ol.d.ts",
+      "default": "./dist/geoline.ol.js"
+    },
+    "./geoline.ol.css": "./dist/geoline.ol.css",
+    "./dist/geoline.ol.js": {
+      "types": "./dist/geoline.ol.d.ts",
+      "default": "./dist/geoline.ol.js"
+    },
+    "./dist/geoline.ol.css": "./dist/geoline.ol.css",
+    "./package.json": "./package.json"
   },
   "devDependencies": {
     "concurrently": "^10.0.7",
@@ -27,7 +35,9 @@
     "eslint-plugin-jsdoc": "^65.4.5",
     "gh-pages": "^6.3.0",
     "mini-css-extract-plugin": "^2.9.4",
+    "ol": "^10.11.0",
     "oxlint": "^1.93.0",
+    "proj4": "^2.22.0",
     "style-loader": "^4.0.0",
     "typescript": "^7.0.2",
     "wait-on": "^9.0.1",
@@ -45,16 +55,19 @@
     "lint": "oxlint src",
     "build-dist": "webpack --config webpack.dist.config.cjs --mode production && tsc -p tsconfig.json",
     "build-dev": "webpack --config webpack.dist.config.cjs --watch",
-    "pack-dist": "npm run build-dist && rm -rf .pack && mkdir .pack && npm pack --pack-destination .pack",
+    "pack-dist": "npm run build-dist && node scripts/check-bundle.mjs && rm -rf .pack && mkdir .pack && npm pack --pack-destination .pack",
     "build-examples": "npm run build-dist && webpack --config webpack.examples.config.cjs",
     "serve-examples": "npm run build-dist && webpack serve --config webpack.examples.config.cjs --port 8080 --open",
     "start-dev": "concurrently \"npm run build-dev\" \"webpack --config webpack.examples.config.cjs --watch\" \"npm run serve-examples\"",
     "deploy-gh-pages": "npm run build-examples && gh-pages --dist demo",
-    "test-consumer": "node scripts/check-consumer.mjs",
+    "test-consumer": "node scripts/check-consumer.mjs && cypress run --config-file cypress.consumer.config.js --browser chrome",
     "test-api": "cypress run --config-file cypress.api.config.js --browser chrome",
     "test-e2e": "concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress run --browser chrome\"",
     "cypress-api": "npm run build-dist && npm run test-api",
     "cypress-run": "npm run build-dist && npm run test-e2e",
     "cypress-open": "npm run build-dist && concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress open\""
+  },
+  "peerDependencies": {
+    "ol": "^10.11.0"
   }
 }

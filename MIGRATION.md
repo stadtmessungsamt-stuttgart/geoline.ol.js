@@ -2,6 +2,26 @@
 
 Diese Anleitung beschreibt die Änderungen, die Anwendungen beim Umstieg auf die neue Hauptversion anpassen müssen. Sie wird bis zum Release vervollständigt.
 
+## OpenLayers als Peer-Dependency, Einstiegspunkte und CSS
+
+geoline.ol.js bringt keine eigene Kopie von OpenLayers mehr mit. Bisher arbeiteten Anwendungen, die OpenLayers selbst verwenden, mit zwei getrennten Kopien; Karten, Layer und Projektionen passten dann nicht zusammen.
+
+- **`ol` selbst installieren:** `npm install ol` (unterstützt: `ol@^10.11.0`). Mit `npm ls ol` prüfen, dass nur eine Version installiert ist.
+- **OpenLayers-CSS selbst importieren:** `import 'ol/ol.css';`. Die CSS von geoline.ol.js enthält sie nicht mehr.
+- **Einstiegspunkte:** Die `exports`-Map erlaubt nur noch `@stadtmessungsamt-stuttgart/geoline.ol.js`, `…/geoline.ol.css` sowie die bisherigen `…/dist/geoline.ol.js` und `…/dist/geoline.ol.css`. Imports aus `…/src/…` (z. B. `…/src/geoline.ol.css`) funktionieren nicht mehr; `src` ist nicht mehr im Paket.
+- **proj4** ist eingebettet und keine Abhängigkeit mehr. Wer proj4 selbst nutzt, installiert es selbst.
+
+```js
+// 3.x
+import StmaOpenLayers from '@stadtmessungsamt-stuttgart/geoline.ol.js/dist/geoline.ol.js';
+import '@stadtmessungsamt-stuttgart/geoline.ol.js/src/geoline.ol.css';
+
+// 4.0
+import 'ol/ol.css';
+import StmaOpenLayers from '@stadtmessungsamt-stuttgart/geoline.ol.js';
+import '@stadtmessungsamt-stuttgart/geoline.ol.js/geoline.ol.css';
+```
+
 ## Rückgabewerte statt Callbacks, beobachtbare Fehler
 
 In 3.x gaben die Methoden nichts zurück. Ergebnisse kamen nur über einen Callback als letzten Parameter, Fehler meist nur über `console.error`. Ab 4.0 liefern alle Methoden ihr Ergebnis als Rückgabewert, und Fehler erreichen den Aufrufer.

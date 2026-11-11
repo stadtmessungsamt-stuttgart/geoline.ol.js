@@ -44,7 +44,7 @@ npm run start-dev
 Relevante Scripts (siehe package.json):
 - `npm run build-dist` – baut `dist/` (webpack, danach Typprüfung und `.d.ts` mit tsc)
 - `npm run pack-dist` – baut `dist/` und packt das npm-Paket nach `.pack/`
-- `npm run test-consumer` – installiert das Paket aus `.pack/` in ein leeres Projekt und prüft dort das TS-Beispiel
+- `npm run test-consumer` – installiert das Paket aus `.pack/` in leere Projekte: prüft das TS-Beispiel mit `moduleResolution` `bundler` und `nodenext`, baut die Verbraucherprojekte aus `consumers/` (Webpack 5, Vite) und prüft sie im Browser
 - `npm run build-examples` – baut `dist/` und bündelt alle Beispiele nach `demo/`
 - `npm run serve-examples` – baut `dist/` und startet den Webpack Dev Server auf Port 8080
 - `npm run cypress-api` / `npm run cypress-run` – bauen `dist/` und starten die API- bzw. E2E-Tests; `test-api` und `test-e2e` testen ohne erneuten Build

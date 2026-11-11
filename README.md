@@ -21,10 +21,43 @@ Die Bibliothek richtet sich an Entwicklerinnen und Entwickler, die bereits mit O
 
 
 ## Installation
-Um die API zu nutzen, können Sie das Paket installieren:
-    ```
-    npm install @stadtmessungsamt-stuttgart/geoline.ol.js
-    ```
+
+OpenLayers ist eine Peer-Dependency: Ihre Anwendung installiert `ol` selbst, geoline.ol.js nutzt dieselbe Installation.
+
+```
+npm install ol @stadtmessungsamt-stuttgart/geoline.ol.js
+```
+
+Unterstützt wird OpenLayers 10 ab Version 10.11 (`ol@^10.11.0`).
+
+```js
+import 'ol/ol.css';
+import StmaOpenLayers from '@stadtmessungsamt-stuttgart/geoline.ol.js';
+import '@stadtmessungsamt-stuttgart/geoline.ol.js/geoline.ol.css';
+
+const geoline = new StmaOpenLayers();
+const map = geoline.initMap(25832, {target: 'map'});
+```
+
+- **CSS:** Die Anwendung importiert die CSS von OpenLayers (`ol/ol.css`) und die von geoline.ol.js (`…/geoline.ol.css`). geoline.ol.js bringt keine Kopie der OpenLayers-CSS mit.
+- **Einstiegspunkte:** Das Paket legt seine Pfade über eine `exports`-Map fest: `.` (JavaScript und Typen) und `./geoline.ol.css`. Die bisherigen Pfade `…/dist/geoline.ol.js` und `…/dist/geoline.ol.css` funktionieren weiter; andere Pfade im Paket sind nicht erreichbar.
+- **proj4** ist eingebettet und muss nicht installiert werden.
+
+### Zielumgebung
+
+- Browser: aktuelle Evergreen-Browser (ES2020, natives ESM). Der Build transpiliert nicht.
+- Bundler: Webpack 5 und Vite.
+- TypeScript: `moduleResolution` `bundler` oder `nodenext`, ohne `skipLibCheck`. Für CSS-Importe braucht das Projekt eine Deklaration, z. B. `declare module '*.css';` oder die Typen des Bundlers (`vite/client`). Wer selbst `ol/format/GeoJSON` importiert, braucht `@types/geojson`.
+- CDN als ESM nur mit einer Import-Map für `ol`, weil geoline.ol.js OpenLayers als `ol/…` importiert. Immer mit fester Hauptversion einbinden.
+
+### Eine OpenLayers-Installation für alle Pakete
+
+geoline.ol.js und Ihre Anwendung müssen dieselben OpenLayers-Klassen verwenden, sonst scheitern z. B. `instanceof`-Prüfungen oder Projektionen sind nur in einer Kopie registriert.
+
+- Mit `npm ls ol` prüfen, dass genau eine Version installiert ist. Verlangen mehrere Pakete unterschiedliche Bereiche, die Versionen angleichen oder über `overrides` in der `package.json` der Anwendung eine Version festlegen.
+- Microfrontends mit getrennten Bundles teilen `ol` nicht automatisch. Dort `ol` ausdrücklich gemeinsam bereitstellen (z. B. Module Federation mit `singleton: true` oder eine gemeinsame Import-Map).
+
+Das Beispiel „mit eigenen OpenLayers-Layern, -Controls und -Overlays“ zeigt die gemeinsame Nutzung.
 
 ## Beispiele
 

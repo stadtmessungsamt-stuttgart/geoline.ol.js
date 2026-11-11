@@ -1,7 +1,8 @@
-import StmaOpenLayers from "@stadtmessungsamt-stuttgart/geoline.ol.js/dist/geoline.ol";
-import "@stadtmessungsamt-stuttgart/geoline.ol.js/dist/geoline.ol.css";
+import StmaOpenLayers from "@stadtmessungsamt-stuttgart/geoline.ol.js";
+import "ol/ol.css";
+import "@stadtmessungsamt-stuttgart/geoline.ol.js/geoline.ol.css";
 import { MousePosition, Zoom } from 'ol/control.js';
-import { Coordinate } from 'ol/coordinate';
+import type { Coordinate } from 'ol/coordinate.js';
 
 const mymap = new StmaOpenLayers();
 

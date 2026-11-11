@@ -25,6 +25,9 @@ module.exports = {
             type: 'module'
         }
     },
+    // OpenLayers ist Peer-Dependency: Geoline und Anwendung nutzen dieselbe Installation, im Bundle steckt keine Kopie
+    externals: [/^ol(\/.*)?$/],
+    externalsType: 'module',
     resolve: {
         extensions: ['.ts', '.js', '.css'],
         // TS-Module werden mit Endung .js importiert, damit die erzeugten .d.ts auch unter moduleResolution nodenext auflösbar sind

@@ -38,10 +38,6 @@ module.exports = {
     },
     resolve: {
         extensions: ['.js', '.ts'],
-        alias: {
-            // Die Beispiele importieren das Paket wie ein Verbraucher; hier zeigt der Name auf den frisch gebauten Stand im Repository
-            '@stadtmessungsamt-stuttgart/geoline.ol.js': __dirname,
-        },
     },
     module: {
         rules: [
@@ -81,11 +77,6 @@ module.exports = {
                         }
                         return content;
                     },
-                },
-                // Optional: ol.css direkt zugänglich machen
-                {
-                    from: path.resolve(__dirname, 'node_modules/ol/ol.css'),
-                    to: path.resolve(__dirname, 'demo/ol.css'),
                 },
             ],
         }),
