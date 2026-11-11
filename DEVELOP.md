@@ -3,14 +3,14 @@
 Dieses Dokument beschreibt, wie eine lokale Entwicklungsumgebung für geoline.ol.js gestartet, Beispiele ausgeführt und Tests gestartet werden können.
 
 ## Voraussetzungen
-- Node.js 18 oder höher (empfohlen: 22 LTS)
+- Node.js 24 LTS mit npm 11.5.1 oder höher (Basis, auch für die Veröffentlichung). Die CI prüft zusätzlich Node 22 LTS.
 - Optional: nvm (Node Version Manager) für die Verwaltung mehrerer Node-Versionen
 - Optional: Docker (falls ohne lokale Node-Installation gearbeitet werden soll)
 
-Empfohlene Node-Version setzen (mit nvm):
+Die Datei `.nvmrc` legt die Version fest (mit nvm):
 ```
-nvm install 22
-nvm use 22
+nvm install
+nvm use
 ```
 
 ## Repository klonen
@@ -55,7 +55,7 @@ docker run -it --rm --name geoline-ol-js \
    -v $(pwd):/app \
    -e NODE_ENV=development \
    -p 8080:8080 \
-   node:22 \
+   node:24 \
    bash -c "npm install && npm run start-dev"
 ```
 Voraussetzungen:
@@ -74,13 +74,10 @@ npm run cypress-open
 npm run cypress-run
 ```
 
-Tipp (mit nvm und Node 22):
+Tipp (mit nvm, Version aus `.nvmrc`):
 ```
-# Cypress im interaktiven Modus mit Node 22 starten
-nvm exec 22 npm run cypress-open
-
-# Headless-Run mit Node 22
-nvm exec 22 npm run cypress-run
+nvm exec npm run cypress-open
+nvm exec npm run cypress-run
 ```
 
 ## Ports & Pfade
