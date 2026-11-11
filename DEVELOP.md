@@ -31,7 +31,7 @@ npm ci
 ## Beispiele lokal bauen und serven (Schnellstart)
 Die Beispiele befinden sich unter `examples/` und werden in den Ordner `demo/` gebündelt. Ein Webpack Dev Server stellt diese anschließend auf Port 8080 bereit.
 
-Die Beispiele importieren das Paket wie ein Verbraucher (`@stadtmessungsamt-stuttgart/geoline.ol.js/dist/…`). Der Name zeigt über einen Alias in `webpack.examples.config.cjs` auf den gebauten Stand im Repository. Änderungen in `src/` erscheinen deshalb erst, nachdem `dist/` neu gebaut ist; `npm run start-dev` erledigt das im Watch-Modus.
+Die Beispiele importieren das Paket wie ein Verbraucher (`@stadtmessungsamt-stuttgart/geoline.ol.js`). Der Name zeigt über die `exports`-Map des eigenen Pakets auf den gebauten Stand im Repository. Änderungen in `src/` erscheinen deshalb erst, nachdem `dist/` neu gebaut ist; `npm run start-dev` erledigt das im Watch-Modus.
 
 - Starten:
 ```

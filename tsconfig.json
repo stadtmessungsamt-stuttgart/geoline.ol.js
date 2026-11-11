@@ -7,9 +7,6 @@
     "outDir": "./dist",
     "declaration": true,
     "emitDeclarationOnly": true,
-    "allowJs": true,
-    // Die JS-Fassade bleibt bis zu ihrer Migration nach TypeScript ungeprüft; .ts-Dateien gelten sofort strict
-    "checkJs": false,
     "strict": true,
     "noEmitOnError": true,
     "esModuleInterop": true,

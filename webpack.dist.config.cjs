@@ -14,7 +14,7 @@ module.exports = {
     entry: {
         // CSS als eigener Eintrag statt Import im Einstieg: TypeScript übernähme den Import sonst in die .d.ts (TS2882 bei Verbrauchern).
         // Reihenfolge ist Pflicht: Die Bibliothek exportiert, was das letzte Modul des Arrays exportiert.
-        'geoline.ol': [path.resolve(__dirname, 'src/geoline.ol.css'), path.resolve(__dirname, 'src/geoline.ol.js')],
+        'geoline.ol': [path.resolve(__dirname, 'src/geoline.ol.css'), path.resolve(__dirname, 'src/geoline.ol.ts')],
     },
     output: {
         path: path.resolve(__dirname, 'dist'),
