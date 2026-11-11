@@ -59,6 +59,24 @@ geoline.ol.js und Ihre Anwendung müssen dieselben OpenLayers-Klassen verwenden,
 
 Das Beispiel „mit eigenen OpenLayers-Layern, -Controls und -Overlays“ zeigt die gemeinsame Nutzung.
 
+## Popups und Quellenangaben
+
+`addOverlayForLayer(layer, fn)` zeigt beim Klick auf ein Objekt des Layers ein Popup. Der Rückgabewert von `fn(feature)` wird **ungefiltert als HTML** eingesetzt. Werte aus Kartendiensten, Daten oder Benutzereingaben muss die Anwendung vorher escapen; DOM-Inhalte, die aus solchen Werten entstehen, sind ebenso wenig automatisch sicher.
+
+Das Popup-Element gehört zum Vertrag und kann per CSS gestaltet werden:
+
+```html
+<div id="geoline_ol_js_popup" class="geoline-ol-js-popup">
+  <div class="arrow"></div>
+  <div class="content"><!-- Rückgabewert von fn(feature) --></div>
+</div>
+```
+
+- Die Klasse `geoline-ol-js-popup` ist immer gesetzt; eigenes CSS sollte sie statt der ID verwenden.
+- Die ID ist über `initMap(…, {popupId})` wählbar, Standard `geoline_ol_js_popup`. Jede weitere Karte auf der Seite braucht eine eigene ID.
+
+Quellenangaben (`copyrightText`) aus ArcGIS-Diensten zeigt geoline.ol.js als reinen Text an; HTML darin wird nicht ausgewertet.
+
 ## Beispiele
 
 Das Repository enthält verschiedene Beispiele im Ordner

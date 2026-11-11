@@ -52,6 +52,13 @@ describe('Abruf von Dienstinformationen', () => {
         addEsriLayer().then(() => expect(document.scripts.length, 'keine Script-Elemente').to.equal(scripts));
     });
 
+    it('zeigt copyrightText als Text an, ohne HTML-Elemente zu erzeugen', () => {
+        const copyright = '<b>fett</b> & <img src=x onerror="window.injected=1">';
+        cy.intercept(ESRI_INFO, {body: {...AGS_INFO, copyrightText: copyright}});
+        addEsriLayer();
+        cy.wrap(target).find('.ol-attribution li').should('have.text', copyright).find('b, img').should('not.exist');
+    });
+
     it('meldet eine Fehlerantwort des Dienstes als SERVICE_ERROR', () => {
         cy.intercept(ESRI_INFO, {body: {error: {code: 499, message: 'Token Required'}}});
         addEsriLayer('SERVICE_ERROR');

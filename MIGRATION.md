@@ -218,6 +218,14 @@ karte2.initMap(25832, {target: 'karte2'}, {}, {popupId: 'popup_karte2'});
 - **Kachelgröße:** Nicht quadratische ArcGIS-Kacheln werden als Breite × Höhe gelesen; in 3.x waren Breite und Höhe vertauscht.
 - **`controls: null`** schaltet alle Bedienelemente ab, die Quellenangabe bleibt.
 
+## Quellenangaben von ArcGIS-Diensten nur noch als Text
+
+Den `copyrightText` aus der Dienstbeschreibung von ArcGIS-Diensten zeigt geoline.ol.js als reinen Text an, auch bei eigenen Diensten über `addEsriLayer`. In 3.x wertete OpenLayers ihn als HTML aus.
+
+- **Betroffen:** Dienste, deren `copyrightText` HTML enthält. Links darin sind nicht mehr anklickbar, Markup erscheint als Text. HTML-Entities wie `&copy;` erscheinen wörtlich; im Dienst das Zeichen `©` verwenden.
+- **Nicht betroffen:** Die Dienste des Stadtmessungsamtes; ihr Copyright-Text enthält kein HTML.
+- **Eigene Quellenangabe mit Link:** nach dem Hinzufügen mit OpenLayers setzen, z. B. `result.value.getSource().setAttributions('<a href="…">© …</a>')`. OpenLayers übernimmt diesen Wert als HTML.
+
 ## Eigene Dienste brauchen CORS
 
 Dienstinformationen von ArcGIS-Servern lädt geoline.ol.js nicht mehr per JSONP, sondern per `fetch`. JSONP hat die Antwort als Script in der Anwendung ausgeführt. Einen Legacy-Modus gibt es nicht.

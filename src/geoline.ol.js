@@ -34,6 +34,7 @@ import {ok, fail} from './result.js';
 import {RequestCache} from './request-cache.js';
 import {parseConfig, stmaHostnames, serviceEntry, isHostOrSubdomain} from './config.js';
 import {parseGeoJSON} from './geojson.js';
+import {escapeHtml} from './html.js';
 import {
     assertBoolean,
     assertCoordinateList,
@@ -338,13 +339,11 @@ class StmaOpenLayers {
                     return fail('SERVICE_ERROR', "Der Kartendienst " + _url + " meldet einen Fehler: " + ags_info.error.message, ags_info.error);
                 }
 
-                //Copyright
+                //Copyright: OpenLayers rendert Attributionen als HTML, copyrightText ist reiner Text
                 const url = new URL(_url);
-                if (this._stmaHosts('ags').includes(url.hostname)) {
-                    if (ags_info.copyrightText == null || ags_info.copyrightText.length === 0) {
-                        ags_info.copyrightText = "© Stadtmessungsamt, LHS Stuttgart"
-                    }
-                }
+                const copyright = typeof ags_info.copyrightText === 'string' ? ags_info.copyrightText : '';
+                ags_info.copyrightText = copyright.length > 0 ? escapeHtml(copyright)
+                    : this._stmaHosts('ags').includes(url.hostname) ? "© Stadtmessungsamt, LHS Stuttgart" : undefined;
 
                 //AGS Kartendienst von Esri? Der Copyright-Vermerk muss immer sichtbar sein
                 if (isHostOrSubdomain(url.hostname, "arcgisonline.com") || isHostOrSubdomain(url.hostname, "arcgis.com")) {
@@ -696,7 +695,7 @@ class StmaOpenLayers {
         let predefinedSourceParams = {
             ratio: 1,
             url: _url,
-            attributions: [ags_info.copyrightText]
+            attributions: ags_info.copyrightText
         };
         sourceParams = {
             ...sourceParams,
@@ -1480,7 +1479,9 @@ class StmaOpenLayers {
      *    @param          {function(import('ol/Feature.js').FeatureLike): string} _overlayFunction
      *                    Funktion, die bei einem Klick auf das Objekt ausgeführt wird.
      *                    Die Funktion muss den HTML-Inhalt für ein Overlay-Fenster zurückgeben. Der Inhalt wird
-     *                    ungefiltert als HTML eingesetzt.
+     *                    ungefiltert als HTML eingesetzt: Werte aus Kartendiensten, Daten oder Benutzereingaben muss
+     *                    die Anwendung vorher escapen. Das Popup-Element hat die Klasse `geoline-ol-js-popup` und die ID
+     *                    aus `initMap(…, {popupId})`; darin stehen `div.arrow` und `div.content` mit dem Inhalt.
      *
      *    @returns        {void}
      *
