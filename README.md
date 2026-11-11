@@ -61,13 +61,16 @@ Das Beispiel „mit eigenen OpenLayers-Layern, -Controls und -Overlays“ zeigt 
 
 ## Popups und Quellenangaben
 
-`addOverlayForLayer(layer, fn)` zeigt beim Klick auf ein Objekt des Layers ein Popup. Der Rückgabewert von `fn(feature)` wird **ungefiltert als HTML** eingesetzt. Werte aus Kartendiensten, Daten oder Benutzereingaben muss die Anwendung vorher escapen; DOM-Inhalte, die aus solchen Werten entstehen, sind ebenso wenig automatisch sicher.
+`addOverlayForLayer(layer, fn)` zeigt beim Klick auf ein Objekt des Layers ein Popup. Ein String als Rückgabewert von `fn(feature)` wird **ungefiltert als HTML** eingesetzt, ein DOM-Knoten unverändert. Werte aus Kartendiensten, Daten oder Benutzereingaben muss die Anwendung vorher escapen; DOM-Inhalte, die aus solchen Werten entstehen, sind ebenso wenig automatisch sicher. Bei leerem Rückgabewert (`''`, `null`, `undefined`) bleibt das Popup geschlossen.
+
+Tastatur: Die Karte erhält `tabindex="0"`, falls ihr Element keinen hat. Mit den Pfeiltasten wird die Karte verschoben, Enter öffnet das Popup für das Objekt in der Kartenmitte, Escape oder die Schaltfläche „Schließen“ schließt es. Der Fokus springt ins Popup und danach zurück auf die Karte.
 
 Das Popup-Element gehört zum Vertrag und kann per CSS gestaltet werden:
 
 ```html
-<div id="geoline_ol_js_popup" class="geoline-ol-js-popup">
+<div id="geoline_ol_js_popup" class="geoline-ol-js-popup" role="dialog" aria-label="Informationen zum Kartenobjekt" tabindex="-1">
   <div class="arrow"></div>
+  <button type="button" class="close" aria-label="Schließen">×</button>
   <div class="content"><!-- Rückgabewert von fn(feature) --></div>
 </div>
 ```
@@ -76,6 +79,18 @@ Das Popup-Element gehört zum Vertrag und kann per CSS gestaltet werden:
 - Die ID ist über `initMap(…, {popupId})` wählbar, Standard `geoline_ol_js_popup`. Jede weitere Karte auf der Seite braucht eine eigene ID.
 
 Quellenangaben (`copyrightText`) aus ArcGIS-Diensten zeigt geoline.ol.js als reinen Text an; HTML darin wird nicht ausgewertet.
+
+## Darstellung und Bedienung
+
+- **CSS nur in der Karte:** `geoline.ol.css` gilt nur innerhalb der Klasse `geoline-ol-js-map` (am Viewport jeder Karte) und für das Popup. Seitenstyles bleiben unberührt.
+- **Anpassen über CSS-Variablen** an `.geoline-ol-js-map`: `--geoline-font-family`, `--geoline-accent` und `--geoline-accent-text` (Schaltflächen), `--geoline-focus`, `--geoline-attribution-font-size`, `--geoline-popup-background`, `--geoline-popup-text`, `--geoline-popup-border`. Die Standardfarben erreichen mindestens 4,5:1 Kontrast.
+
+  ```css
+  .geoline-ol-js-map { --geoline-accent: #005a9c; --geoline-accent-text: #fff; }
+  ```
+- **Kontextmenü:** Ein Rechtsklick auf die Karte öffnet standardmäßig kein Menü. `initMap(…, {contextMenu: true})` lässt das Browsermenü zu.
+- **`pixelRatio`** ist 1, weil die Kartendienste Kacheln für einen Bildpunkt je Pixel liefern; höhere Werte laden mehr Kacheln und verkleinern Beschriftungen. Über `initMap(epsg, {pixelRatio: 2})` überschreibbar.
+- **Kartenbild exportieren (Canvas):** Der Browser gibt Canvas-Inhalte nur frei, wenn alle Kacheln mit CORS geladen wurden. Die Dienste des Stadtmessungsamts senden die nötigen Header (`gis5.stuttgart.de` und `geoserver.stuttgart.de`, geprüft 2026-11-12). WMTS-Layer laden standardmäßig mit `crossOrigin: 'anonymous'`; ArcGIS- und WMS-Layer nur, wenn `_sourceParams` `crossOrigin: 'anonymous'` setzt. Für fremde Dienste ohne CORS-Header bei WMTS `crossOrigin: null` setzen, sonst laden die Kacheln nicht; ein Export ist dann nicht möglich.
 
 ## Beispiele
 

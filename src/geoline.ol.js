@@ -146,6 +146,8 @@ class StmaOpenLayers {
     overlayLayers = []; //Layer, für die das Overlay aktiviert ist.
     overlayFunctions = []; //Funktionen der Layer, für die das Overlay aktiviert ist.
     overlayClickRegistered = false;
+    /** @private */
+    _addedTabIndex = null;
     /**
      * @private
      * @type {globalThis.Map<string, FormatGeoJSON>}
@@ -508,10 +510,8 @@ class StmaOpenLayers {
         }
 
         let sourceParams = {
-            ...{
-                url: _url,
-                params: {"LAYERS": _layerName}
-            },
+            url: _url,
+            params: {"LAYERS": _layerName},
             ..._sourceParams,
             ...predefinedSourceParams
         };
@@ -748,7 +748,7 @@ class StmaOpenLayers {
      *    @param        {object} [_viewParams]
      *                  zusätzliche Parameter für das OpenLayer-View-Objekt<br/>
      *
-     *    @param        {{tileLoadFunction?: Function, config?: GeolineConfig, popupId?: string}} [_customParams]
+     *    @param        {{tileLoadFunction?: Function, config?: GeolineConfig, popupId?: string, contextMenu?: boolean}} [_customParams]
      *                  zusätzliche Parameter für geoline.ol.js<br/>
      *                  Unterstützte Parameter:
      *                  <ul>
@@ -765,6 +765,10 @@ class StmaOpenLayers {
      *                  <li>popupId: ID des Popup-Elements, Standard <code>geoline_ol_js_popup</code>. Bei mehreren Karten auf
      *                      einer Seite braucht jede weitere Karte eine eigene ID. Das Element trägt immer die Klasse
      *                      <code>geoline-ol-js-popup</code>.
+     *                  </li>
+     *
+     *                  <li>contextMenu: <code>true</code> lässt das Kontextmenü des Browsers auf der Karte zu. Standard
+     *                      <code>false</code>: Ein Rechtsklick auf die Karte öffnet kein Menü.
      *                  </li>
      *                  </ul>
      *
@@ -799,6 +803,8 @@ class StmaOpenLayers {
             }
             manualConfig = parsed.value;
         }
+        const contextMenu = customParams.contextMenu ?? false;
+        assertBoolean(contextMenu, '_customParams.contextMenu', 'initMap');
         const popupId = customParams.popupId ?? DEFAULT_POPUP_ID;
         assertString(popupId, '_customParams.popupId', 'initMap');
         if (document.getElementById(popupId) !== null) {
@@ -832,11 +838,13 @@ class StmaOpenLayers {
             target: "map",
             controls: defaultControls({
                 attribution: false
-            })
+            }),
+            // Die Kartendienste liefern Kacheln für 1 Bildpunkt je Pixel; höhere Werte laden mehr Kacheln und
+            // verkleinern Beschriftungen. Für hochauflösende Dienste in _mapParams überschreibbar.
+            pixelRatio: 1
         };
         const predefinedMapParams = {
             logo: false,
-            pixelRatio: 1,                 // wichtige Einstellung für unsere Kartendienste
             loadTilesWhileAnimating: true, //Kacheln während des Zoomens nachladen
             loadTilesWhileInteracting: true
         };
@@ -876,15 +884,32 @@ class StmaOpenLayers {
         // Map erzeugen
         this.map = new Map(mapParams);
 
-        // Kontextmenü (Rechtsklick) auf der eigenen Karte unterbinden
-        this.map.getViewport().addEventListener("contextmenu", function (e) {
-            e.preventDefault();
-        });
+        const viewport = this.map.getViewport();
+        // Die mitgelieferten Styles gelten nur innerhalb dieser Klasse
+        viewport.classList.add('geoline-ol-js-map');
+        if (!contextMenu) {
+            viewport.addEventListener("contextmenu", (e) => e.preventDefault());
+        }
 
         // Popup-Element sofort anlegen, damit die ID für weitere Karten auf der Seite als vergeben erkennbar ist
         const popupElement = document.createElement('div');
         popupElement.id = popupId;
         popupElement.className = 'geoline-ol-js-popup';
+        popupElement.setAttribute('role', 'dialog');
+        popupElement.setAttribute('aria-label', 'Informationen zum Kartenobjekt');
+        popupElement.tabIndex = -1;
+        popupElement.style.display = 'none';
+        const arrow = document.createElement('div');
+        arrow.className = 'arrow';
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'close';
+        closeButton.setAttribute('aria-label', 'Schließen');
+        closeButton.textContent = '×';
+        closeButton.addEventListener('click', () => this._closeOverlay(true));
+        const content = document.createElement('div');
+        content.className = 'content';
+        popupElement.append(arrow, closeButton, content);
         this.overlayLayer = new Overlay({element: popupElement});
         this.map.addOverlay(this.overlayLayer);
 
@@ -912,6 +937,8 @@ class StmaOpenLayers {
         // Zuerst die Session lösen, damit Ergebnisse, die während des Abbruchs eintreffen, als veraltet gelten.
         this._session = null;
         session.controller.abort();
+        this._addedTabIndex?.removeAttribute('tabindex');
+        this._addedTabIndex = null;
         this.map.dispose();
 
         this.map = null;
@@ -1470,6 +1497,98 @@ class StmaOpenLayers {
     }
 
     /**
+     * Öffnet das Popup für das oberste Objekt an einem Pixel, das zu einem Layer mit Overlay gehört; sonst schließt es.
+     *
+     * @private
+     * @param {import('ol/pixel.js').Pixel} pixel Pixel in der Karte
+     * @param {import('ol/coordinate.js').Coordinate} coordinate Position des Popups
+     * @param {boolean} byKeyboard Fokus ins Popup setzen
+     * @param {number} [hitTolerance] Toleranz in Pixeln
+     * @returns {void}
+     */
+    _openOverlayAt(pixel, coordinate, byKeyboard, hitTolerance = 0) {
+        const hit = this.map.forEachFeatureAtPixel(
+            pixel,
+            (feature, layer) => ({feature, layer}),
+            {
+                //Filter, damit nur die Features gefunden werden, für die auch der Overlay aktiviert wurde.
+                layerFilter: (candidate) => this.overlayLayers.includes(candidate),
+                hitTolerance
+            }
+        );
+        const overlayFunction = hit ? this.overlayFunctions[this.overlayLayers.indexOf(hit.layer)] : undefined;
+        const result = overlayFunction?.(hit.feature);
+        const element = this.overlayLayer.getElement();
+        const content = element.querySelector('.content');
+        if (result instanceof Node) {
+            content.replaceChildren(result);
+        } else if (result != null && String(result).trim() !== '') {
+            // Vertrag: Zeichenketten werden ungefiltert als HTML eingesetzt (README, „Popups und Quellenangaben“)
+            content.innerHTML = String(result);
+        } else {
+            this._closeOverlay(false);
+            return;
+        }
+
+        this.overlayLayer.setPosition(coordinate);
+        element.style.display = 'block';
+        element.style.transform = "translate3d(-" + element.offsetWidth / 2 + "px, calc(-" + element.offsetHeight + "px - 0.5rem), 0px)";
+        if (byKeyboard) {
+            element.focus();
+        }
+    }
+
+    /**
+     * Schließt das Popup.
+     *
+     * @private
+     * @param {boolean} returnFocus Fokus zurück auf die Karte setzen
+     * @returns {void}
+     */
+    _closeOverlay(returnFocus) {
+        const element = this.overlayLayer.getElement();
+        if (element.style.display === 'none') {
+            return;
+        }
+        element.style.display = 'none';
+        element.querySelector('.content').replaceChildren();
+        this.overlayLayer.setPosition(undefined);
+        if (returnFocus) {
+            this.map.getTargetElement()?.focus();
+        }
+    }
+
+    /**
+     * Tastaturbedienung: Die Karte wird fokussierbar, Enter öffnet das Popup für das Objekt in der Kartenmitte
+     * (verschieben mit den Pfeiltasten), Escape schließt es.
+     *
+     * @private
+     * @returns {void}
+     */
+    _registerOverlayKeys() {
+        const target = this.map.getTargetElement();
+        if (target == null) {
+            return;
+        }
+        if (!target.hasAttribute('tabindex')) {
+            target.tabIndex = 0;
+            this._addedTabIndex = target;
+        }
+        target.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this._closeOverlay(true);
+            } else if (e.key === 'Enter' && e.target === target) {
+                const center = this.map.getView().getCenter();
+                const pixel = center && this.map.getPixelFromCoordinate(center);
+                if (pixel) {
+                    e.preventDefault();
+                    this._openOverlayAt(pixel, center, true, 8);
+                }
+            }
+        }, {signal: this._session.controller.signal});
+    }
+
+    /**
      *    @description    Bietet die Möglichkeit an für einen Layer ein Overlay hinzuzufügen.
      *                    Beispiel:
      *                    <code>mymap.addOverlayForLayer(_layer, _overlayFunction);</code>
@@ -1499,36 +1618,8 @@ class StmaOpenLayers {
 
         if (!this.overlayClickRegistered) {
             this.overlayClickRegistered = true;
-            this.map.on('click', (evt) => {
-                const _overlayDIV = this.overlayLayer.getElement();
-                const featuredata = this.map.forEachFeatureAtPixel(
-                    evt.pixel,
-                    function (_feature, _layer) {
-                        return {
-                            "feature": _feature,
-                            "layer": _layer
-                        };
-                    },
-                    {
-                        //Filter, damit nur die Features gefunden werden, für die auch der Overlay aktiviert wurde.
-                        layerFilter: (_layerCandidate) => this.overlayLayers.includes(_layerCandidate)
-                    }
-                );
-                if (featuredata) {
-                    const overlayFunction = this.overlayFunctions[this.overlayLayers.indexOf(featuredata.layer)];
-
-                    _overlayDIV.innerHTML =
-                        '<div class="arrow"></div>' +
-                        '<div class="content">' + overlayFunction(featuredata.feature) + '</div>';
-
-                    this.overlayLayer.setPosition(evt.coordinate);
-                    _overlayDIV.style.display = 'block';
-
-                    _overlayDIV.style.transform = "translate3d(-" + _overlayDIV.offsetWidth / 2 + "px, calc(-" + _overlayDIV.offsetHeight + "px - 0.5rem), 0px)";
-                } else {
-                    _overlayDIV.style.display = 'none';
-                }
-            });
+            this.map.on('click', (evt) => this._openOverlayAt(evt.pixel, evt.coordinate, false));
+            this._registerOverlayKeys();
         }
 
         //Füge Layer zu den Layern hinzu, für die das Overlay aktiviert ist.

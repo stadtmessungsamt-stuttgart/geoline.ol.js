@@ -226,6 +226,15 @@ Den `copyrightText` aus der Dienstbeschreibung von ArcGIS-Diensten zeigt geoline
 - **Nicht betroffen:** Die Dienste des Stadtmessungsamtes; ihr Copyright-Text enthält kein HTML.
 - **Eigene Quellenangabe mit Link:** nach dem Hinzufügen mit OpenLayers setzen, z. B. `result.value.getSource().setAttributions('<a href="…">© …</a>')`. OpenLayers übernimmt diesen Wert als HTML.
 
+## Styles, Popup und Bedienung
+
+- **CSS nur noch in der Karte:** `geoline.ol.css` setzt keine Schrift mehr auf `body` und färbt `.ol-control`-Schaltflächen nur noch in geoline-Karten (Klasse `geoline-ol-js-map` am Viewport). Wer sich auf die Schrift `sans-serif` der ganzen Seite verlassen hat, setzt sie selbst. Farben und Schriftgröße sind über CSS-Variablen anpassbar (README, „Darstellung und Bedienung“).
+- **Kontrast:** Schaltflächen haben dunkle statt grauer Schrift auf Gelb; die Quellenangabe ist 0,75 rem (12 px) statt 10 px groß.
+- **Popup:** Das Element ist anfangs ausgeblendet und enthält zusätzlich `button.close`; Inhalt weiter in `div.content`. Ein leerer Rückgabewert der Overlay-Funktion lässt das Popup geschlossen; in 3.x erschien ein leeres Popup oder der Text `undefined`. DOM-Knoten werden eingesetzt statt als `[object …]` angezeigt.
+- **Tastatur:** Das Kartenelement erhält `tabindex="0"`, wenn es keinen hat und ein Overlay registriert ist. Enter öffnet das Popup für das Objekt in der Kartenmitte, Escape schließt es.
+- **Kontextmenü:** weiter standardmäßig unterbunden, mit `initMap(…, {contextMenu: true})` abschaltbar.
+- **`pixelRatio`** bleibt 1, ist aber über `_mapParams.pixelRatio` überschreibbar; in 3.x wurde die Angabe ignoriert.
+
 ## Eigene Dienste brauchen CORS
 
 Dienstinformationen von ArcGIS-Servern lädt geoline.ol.js nicht mehr per JSONP, sondern per `fetch`. JSONP hat die Antwort als Script in der Anwendung ausgeführt. Einen Legacy-Modus gibt es nicht.
