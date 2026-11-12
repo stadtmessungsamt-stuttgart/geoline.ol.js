@@ -113,13 +113,11 @@ describe('API-Form', () => {
             expect(layer.getSource().getFeatures()).to.have.length(1);
         });
 
-        it('liefert den WMS-Layer als Result', () => {
+        it('liefert den WMS-Layer synchron', () => {
             const geoline = initMap();
-            cy.then(async () => {
-                const result = await geoline.addWMSLayer('https://wms.extern.test/wms', 'Layer');
-                expect(result.ok).to.equal(true);
-                expect(geoline.getMap().getLayers().getArray()).to.include(result.value);
-            });
+            const layer = geoline.addWMSLayer('https://wms.extern.test/wms', 'Layer');
+            expect(geoline.getMap().getLayers().getArray()).to.include(layer);
+            expect(layer.getZIndex()).to.equal(40);
         });
 
         it('meldet eine unbekannte Basiskarte als NOT_FOUND', () => {
@@ -185,27 +183,53 @@ describe('API-Form', () => {
     });
 
     describe('Kartendienste des Stadtmessungsamtes in generischen Methoden', () => {
-        const expectRejected = (promise) => promise.then(
-            () => expect.fail('Promise hätte abgelehnt werden müssen'),
-            (err) => {
-                expect(err).to.be.instanceOf(TypeError);
-                expect(err.message).to.include('addStmaWMSLayer');
-            }
-        );
+        const STMA = '© Stadtmessungsamt, LHS Stuttgart';
+        const attributions = (layer) => layer.getSource().getAttributions()?.() ?? [];
 
-        it('lehnt ab, wenn die Konfiguration schon geladen ist', () => {
+        it('fügt den WMS-Layer mit Quellenangabe und zIndex des Stadtmessungsamtes hinzu', () => {
             const geoline = initMap();
             cy.then(() => geoline.loadConfig());
-            cy.then(() => expectRejected(geoline.addWMSLayer('https://wms.stma.test/wms', 'Layer')));
+            cy.then(() => {
+                const layer = geoline.addWMSLayer('https://wms.stma.test/wms', 'Layer');
+                expect(geoline.getMap().getLayers().getArray()).to.include(layer);
+                expect(attributions(layer)).to.deep.equal([STMA]);
+                expect(layer.getZIndex()).to.equal(50);
+            });
         });
 
-        it('lehnt ab, wenn die Konfiguration noch lädt', () => {
+        it('trägt Quellenangabe und zIndex nach, wenn die Konfiguration noch lädt; ein eigener zIndex bleibt', () => {
             cy.intercept('POST', CONFIG_URL, {body: CONFIG, delay: 300});
+            let geoline;
+            let ohneZIndex;
+            let mitZIndex;
             // initMap erst nach dem Intercept auslösen, sonst gilt noch die Antwort ohne Verzögerung
             cy.then(() => {
-                const geoline = initMap();
+                geoline = initMap();
                 expect(geoline.config, 'Konfiguration noch nicht geladen').to.equal(null);
-                return expectRejected(geoline.addWMSLayer('https://wms.stma.test/wms', 'Layer'));
+                ohneZIndex = geoline.addWMSLayer('https://wms.stma.test/wms', 'Layer', {}, {TILED: true});
+                mitZIndex = geoline.addWMSLayer('https://wms.stma.test/wms', 'Layer', {zIndex: 5});
+                expect(attributions(ohneZIndex)).to.deep.equal([]);
+                expect(ohneZIndex.getZIndex()).to.equal(10);
+            });
+            cy.then(() => geoline.loadConfig());
+            cy.then(() => {
+                expect(attributions(ohneZIndex)).to.deep.equal([STMA]);
+                expect(ohneZIndex.getZIndex()).to.equal(20);
+                expect(attributions(mitZIndex)).to.deep.equal([STMA]);
+                expect(mitZIndex.getZIndex()).to.equal(5);
+            });
+        });
+
+        it('fügt den WMS-Layer ohne Vorgaben des Stadtmessungsamtes hinzu, wenn die Konfiguration nicht ladbar ist', () => {
+            cy.intercept('POST', CONFIG_URL, {statusCode: 503});
+            cy.then(() => {
+                const geoline = initMap();
+                const layer = geoline.addWMSLayer('https://wms.stma.test/wms', 'Layer');
+                return geoline.loadConfig().then((result) => {
+                    expect(result.ok).to.equal(false);
+                    expect(attributions(layer)).to.deep.equal([]);
+                    expect(layer.getZIndex()).to.equal(40);
+                });
             });
         });
     });

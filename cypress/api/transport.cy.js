@@ -59,6 +59,20 @@ describe('Abruf von Dienstinformationen', () => {
         cy.wrap(target).find('.ol-attribution li').should('have.text', copyright).find('b, img').should('not.exist');
     });
 
+    it('fügt einen Dienst des Stadtmessungsamtes auch über addEsriLayer hinzu, mit dessen Quellenangabe und zIndex', () => {
+        cy.intercept({hostname: 'ags.stma.test', pathname: '/arcgis/rest/services/Test/MapServer'}, {body: {...AGS_INFO, copyrightText: ''}});
+        cy.intercept({hostname: 'ags.stma.test', pathname: /\/export$/}, {statusCode: 204});
+        cy.then(async () => {
+            // Karte neu aufbauen: Erst jetzt greift der Intercept der Konfiguration (beforeEach ruft initMap synchron auf)
+            geoline.dispose();
+            geoline.initMap(25832, {target});
+            const result = await geoline.addEsriLayer('https://ags.stma.test/arcgis/rest/services/Test/MapServer');
+            expect(result.ok, JSON.stringify(result.error)).to.equal(true);
+            expect(result.value.getZIndex()).to.equal(50);
+        });
+        cy.wrap(target).find('.ol-attribution li').should('have.text', '© Stadtmessungsamt, LHS Stuttgart');
+    });
+
     it('meldet eine Fehlerantwort des Dienstes als SERVICE_ERROR', () => {
         cy.intercept(ESRI_INFO, {body: {error: {code: 499, message: 'Token Required'}}});
         addEsriLayer('SERVICE_ERROR');

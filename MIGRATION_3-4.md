@@ -36,7 +36,7 @@ In 3.x gaben die Methoden nichts zurück. Ergebnisse kamen nur über einen Callb
 
 Der synchrone Fehler fliegt beim Aufruf, auch bei asynchronen Methoden. `try { await … } catch` fängt ihn trotzdem.
 
-Ausnahme: Ob ein Dienst dem Stadtmessungsamt gehört, steht erst nach dem Laden der Konfiguration fest. Wird ein solcher Dienst über `addEsriLayer`, `addWMTSLayer` oder `addWMSLayer` statt über die `addStma*`-Methode eingebunden, lehnt die Bibliothek die Promise mit einem `TypeError` ab. Das gilt immer, auch wenn die Konfiguration schon geladen ist.
+Dienste des Stadtmessungsamtes lassen sich auch über `addEsriLayer`, `addWMTSLayer` und `addWMSLayer` einbinden, z. B. unter einem Pfad, den die `addStma*`-Methoden nicht abdecken. Sie erhalten dann dieselbe Quellenangabe und denselben zIndex wie über `addStma*`; bei `addWMSLayer` werden beide nachgetragen, falls die Konfiguration beim Aufruf noch lädt. In 3.x wurde ein solcher Aufruf mit `console.error` verweigert, wenn die Konfiguration zufällig schon geladen war.
 
 ### Result-Objekt
 
@@ -81,7 +81,8 @@ const layer = r.value;
 | `initMap` | nichts, Callback mit Map | `Map` |
 | `addEsriLayer`, `addStmaEsriLayer` | nichts, Callback mit Layer | `Promise<Result<Layer>>` |
 | `addWMTSLayer`, `addStmaWMTSLayer` | nichts, Callback mit Layer oder `false` | `Promise<Result<Layer>>` |
-| `addWMSLayer`, `addStmaWMSLayer` | nichts, Callback mit Layer (synchron) | `Promise<Result<Layer>>` (jetzt asynchron) |
+| `addWMSLayer` | nichts, Callback mit Layer (synchron) | `Layer` (synchron) |
+| `addStmaWMSLayer` | nichts, Callback mit Layer | `Promise<Result<Layer>>` |
 | `addStmaBaseLayer` | nichts, Callback mit Layer | `Promise<Result<Layer>>` |
 | `addGeoJSONfromURL` | nichts, Callback mit Layer oder `false` | `Promise<Result<VectorLayer>>` |
 | `addGeoJSON` | nichts, Callback mit Layer | `Result<VectorLayer>` (synchron) |
@@ -118,8 +119,6 @@ mymap.initMap(25832, {target: 'map'});
 onInit();
 ```
 
-Asynchrone Methoden: `await` bzw. `.then` verwenden. Aus `if (layer)` bzw. dem bisher ausbleibenden Aufruf im Fehlerfall wird `if (r.ok)`.
-
 ```js
 // 3.x
 mymap.addWMSLayer(url, layerName, {}, {}, (layer) => {
@@ -127,13 +126,23 @@ mymap.addWMSLayer(url, layerName, {}, {}, (layer) => {
 });
 
 // 4.0
-const r = await mymap.addWMSLayer(url, layerName);
+layers[layerName] = mymap.addWMSLayer(url, layerName);
+```
+
+Asynchrone Methoden: `await` bzw. `.then` verwenden. Aus `if (layer)` bzw. dem bisher ausbleibenden Aufruf im Fehlerfall wird `if (r.ok)`.
+
+```js
+// 3.x
+mymap.addStmaWMSLayer(layerName, {}, {}, (layer) => {
+    layers[layerName] = layer;
+});
+
+// 4.0
+const r = await mymap.addStmaWMSLayer(layerName);
 if (r.ok) {
     layers[layerName] = r.value;
 }
 ```
-
-`addWMSLayer` und `addStmaWMSLayer` arbeiteten in 3.x synchron. Code, der den Layer direkt nach dem Aufruf erwartet, muss auf das Ergebnis warten.
 
 Ein Vorteil der neuen Form: Fehler im eigenen Code laufen in die eigene Fehlerbehandlung. In 3.x lief der Callback in der Promise-Kette der Bibliothek; eine Exception darin erschien nur als Bibliotheksfehler in der Konsole.
 

@@ -14,14 +14,13 @@ mymap.addStmaBaseLayer("Basemap") // WMTS-Karte (Stand 2025)
         ? console.log("addStmaBaseLayer (Basemap) wurde ausgeführt", result.value)
         : console.warn(result.error.code, result.error.message));
 
-mymap.addWMSLayer(
+const wmsLayer = mymap.addWMSLayer(
     "https://sgx.geodatenzentrum.de/wms_topplus_open",
     // Layer: "web" (farbig) oder "web_grau" (Graustufen)
     "web_light_grau",
     {zIndex: 0}
-).then((result) => result.ok
-    ? console.log("TopPlusOpen (WMS dyn) hinzugefügt", result.value)
-    : console.warn(result.error.code, result.error.message));
+);
+console.log("TopPlusOpen (WMS dyn) hinzugefügt", wmsLayer);
 
 const pointLayer = mymap.addPoints(
     [[513364, 5403453], [513070, 5402455]],

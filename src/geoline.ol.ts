@@ -237,24 +237,6 @@ class StmaOpenLayers {
     }
 
     /**
-     * Weist Kartendienste des Stadtmessungsamtes in den generischen Methoden zurück. Die Hosts stehen erst nach dem
-     * Laden der Konfiguration fest; deshalb wird immer erst nach dem Laden geprüft, damit das Verhalten nicht vom
-     * Zeitpunkt abhängt. Ist die Konfiguration nicht ladbar, entfällt die Prüfung.
-     *
-     * @param url URL des Dienstes
-     * @param kind Art des Dienstes
-     * @param method Name der aufgerufenen Methode
-     * @param stmaMethod Name der passenden addStma*-Methode
-     */
-    private _rejectStmaHost(url: URL, kind: ServiceKind, method: string, stmaMethod: string): Promise<void> {
-        return this._loadConfig().then(() => {
-            if (this._stmaHosts(kind).includes(url.hostname)) {
-                throw new TypeError(method + ": Kartendienste des Stadtmessungsamtes über die Methode " + stmaMethod + " hinzufügen.");
-            }
-        });
-    }
-
-    /**
      * Lädt und prüft die Konfiguration einmal je Karte. Gleichzeitige Aufrufe teilen sich den Abruf; nach einem
      * Fehler startet der nächste Aufruf einen neuen.
      */
@@ -480,7 +462,8 @@ class StmaOpenLayers {
 
     /**
      * Fügt einen dynamischen WMS-Kartendienst hinzu. Mit `{TILED: true}` in `_sourceParams` gekachelt, sonst als ganzes
-     * Bild.
+     * Bild. Für Kartendienste des Stadtmessungsamtes gelten deren Quellenangabe und zIndex; steht das erst nach dem
+     * Laden der Konfiguration fest, werden sie dann nachgetragen.
      *
      * @param _url URL zum WMS
      * @param _layerName Name des Layers, der eingebunden werden soll
@@ -488,51 +471,43 @@ class StmaOpenLayers {
      * @param _sourceParams zusätzliche Parameter für das OpenLayers-Source-Objekt
      */
     private _addWMSLayer(_url: string, _layerName: string, _layerParams: Params, _sourceParams: Params): Layer {
-
-        //diese Parameter können nicht überdefiniert werden.
-        const predefinedSourceParams: Params = {
-            ratio: 1
-        };
-
-        const url = new URL(_url);
-        if (this._stmaHosts('wms').includes(url.hostname)) {
-            //Copyrighthinweis
-            predefinedSourceParams.attributions = "© Stadtmessungsamt, LHS Stuttgart";
-        }
-
-        // Die Parameter der Anwendung reicht geoline ungeprüft an OpenLayers weiter
+        // Die Parameter der Anwendung reicht geoline ungeprüft an OpenLayers weiter; ratio kann nicht überdefiniert werden
         const sourceParams = {
             url: _url,
             params: {"LAYERS": _layerName},
             ..._sourceParams,
-            ...predefinedSourceParams
+            ratio: 1
         } as ConstructorParameters<typeof SourceImageWMS>[0] & {params: Record<string, unknown>; TILED?: unknown};
         // Beim Zusammenführen von WMS-Diensten kann es vorkommen, dass der Layername nicht immer im Parameter "LAYERS" enthalten ist.
         sourceParams.params.LAYERS = _layerName;
 
-        //Der Layer kann gekachelt oder als ganzes Bild abgerufen werden.
-        let layer: Layer;
-        if (sourceParams.TILED === true) {
-            //gekachelter Abruf = gecacht; anderer zIndex für Stadtmessungsamt-Kartendienste
-            const zIndex = this._stmaHosts('wms').includes(url.hostname) ? 20 : 10;
-            layer = new LayerTile({
-                zIndex,
-                ..._layerParams,
-                //diese Parameter können nicht überdefiniert werden.
-                source: new SourceTileWMS(sourceParams as ConstructorParameters<typeof SourceTileWMS>[0])
-            });
+        //Der Layer kann gekachelt (= gecacht) oder als ganzes Bild (= dynamisch) abgerufen werden; source kann nicht überdefiniert werden
+        const tiled = sourceParams.TILED === true;
+        const layer = tiled
+            ? new LayerTile({zIndex: 10, ..._layerParams, source: new SourceTileWMS(sourceParams as ConstructorParameters<typeof SourceTileWMS>[0])})
+            : new LayerImage({zIndex: 40, ..._layerParams, source: new SourceImageWMS(sourceParams)});
+        this.olMap.addLayer(layer);
+
+        // Dienst des Stadtmessungsamtes: Quellenangabe (Pflicht) und zIndex, ein zIndex der Anwendung bleibt
+        const hostname = new URL(_url).hostname;
+        const applyStmaDefaults = () => {
+            if (this._stmaHosts('wms').includes(hostname)) {
+                layer.getSource()?.setAttributions("© Stadtmessungsamt, LHS Stuttgart");
+                if (_layerParams.zIndex === undefined) {
+                    layer.setZIndex(tiled ? 20 : 50);
+                }
+            }
+        };
+        if (this.config != null) {
+            applyStmaDefaults();
         } else {
-            //Abruf als ein Bild = dynamisch; anderer zIndex für Stadtmessungsamt-Kartendienste
-            const zIndex = this._stmaHosts('wms').includes(url.hostname) ? 50 : 40;
-            layer = new LayerImage({
-                zIndex,
-                ..._layerParams,
-                //diese Parameter können nicht überdefiniert werden.
-                source: new SourceImageWMS(sourceParams)
+            const session = this._session;
+            void this._loadConfig().then((result) => {
+                if (result.ok && session === this._session) {
+                    applyStmaDefaults();
+                }
             });
         }
-
-        this.olMap.addLayer(layer);
         return layer;
     }
 
@@ -838,13 +813,12 @@ class StmaOpenLayers {
      * - 40: dynamisch
      * - 50: dynamisch, Kartendienst des Stadtmessungsamtes
      *
-     * @param _url URL des Kartendienstes. Kartendienste des Stadtmessungsamtes werden über die Methode
-     *             addStmaEsriLayer hinzugefügt.
+     * @param _url URL des Kartendienstes. Für Kartendienste des Stadtmessungsamtes ist addStmaEsriLayer gedacht; über
+     *             diese Methode erhalten sie dieselbe Quellenangabe und denselben zIndex.
      * @param _layerParams zusätzliche Parameter für das OpenLayers-Layer-Objekt
      * @param _sourceParams zusätzliche Parameter für das OpenLayers-Source-Objekt
      *
-     * @returns der hinzugefügte Layer oder ein erwartbarer Fehler. Die Promise wird mit einem TypeError abgelehnt, wenn
-     *          die URL zu einem Kartendienst des Stadtmessungsamtes gehört.
+     * @returns der hinzugefügte Layer oder ein erwartbarer Fehler
      *
      * @throws TypeError bei ungültigen Parametern oder wenn ein Callback übergeben wird
      * @throws Error, wenn keine Karte initialisiert ist
@@ -859,10 +833,12 @@ class StmaOpenLayers {
     addEsriLayer(_url: string, _layerParams: object = {}, _sourceParams: object = {}): Promise<Result<Layer>> {
         assertNoCallback(arguments, 3, 'addEsriLayer');
         const session = this._requireSession('addEsriLayer');
-        const url = assertUrl(_url, '_url', 'addEsriLayer');
+        assertUrl(_url, '_url', 'addEsriLayer');
         assertOptionalObject(_layerParams, '_layerParams', 'addEsriLayer');
         assertOptionalObject(_sourceParams, '_sourceParams', 'addEsriLayer');
-        return this._rejectStmaHost(url, 'ags', 'addEsriLayer', 'addStmaEsriLayer').then(() =>
+        // Erst nach dem Laden der Konfiguration steht fest, ob der Dienst dem Stadtmessungsamt gehört; ein Fehler beim
+        // Laden verhindert den Layer nicht, er erhält dann die allgemeinen Standards.
+        return this._loadConfig().then(() =>
             this._isStale(session) ? this._aborted() : this._addEsriLayer(_url, _layerParams ?? {}, _sourceParams ?? {}, session));
     }
 
@@ -875,14 +851,13 @@ class StmaOpenLayers {
      * - 40: dynamisch
      * - 50: dynamisch, Kartendienst des Stadtmessungsamtes
      *
-     * @param _url GetCapabilities-URL zum WMTS. Kartendienste des Stadtmessungsamtes werden über die Methode
-     *             addStmaWMTSLayer hinzugefügt.
+     * @param _url GetCapabilities-URL zum WMTS. Für Kartendienste des Stadtmessungsamtes ist addStmaWMTSLayer gedacht;
+     *             über diese Methode erhalten sie dieselben Kachel-URLs, dieselbe Quellenangabe und denselben zIndex.
      * @param _layerName Name des Layers, der eingebunden werden soll
      * @param _layerParams zusätzliche Parameter für das OpenLayers-Layer-Objekt
      * @param _sourceParams zusätzliche Parameter für das OpenLayers-Source-Objekt
      *
-     * @returns der hinzugefügte Layer oder ein erwartbarer Fehler. Die Promise wird mit einem TypeError abgelehnt, wenn
-     *          die URL zu einem Kartendienst des Stadtmessungsamtes gehört.
+     * @returns der hinzugefügte Layer oder ein erwartbarer Fehler
      *
      * @throws TypeError bei ungültigen Parametern oder wenn ein Callback übergeben wird
      * @throws Error, wenn keine Karte initialisiert ist
@@ -897,11 +872,12 @@ class StmaOpenLayers {
     addWMTSLayer(_url: string, _layerName: string, _layerParams: object = {}, _sourceParams: object = {}): Promise<Result<Layer>> {
         assertNoCallback(arguments, 4, 'addWMTSLayer');
         const session = this._requireSession('addWMTSLayer');
-        const url = assertUrl(_url, '_url', 'addWMTSLayer');
+        assertUrl(_url, '_url', 'addWMTSLayer');
         assertString(_layerName, '_layerName', 'addWMTSLayer');
         assertOptionalObject(_layerParams, '_layerParams', 'addWMTSLayer');
         assertOptionalObject(_sourceParams, '_sourceParams', 'addWMTSLayer');
-        return this._rejectStmaHost(url, 'wmts', 'addWMTSLayer', 'addStmaWMTSLayer').then(() =>
+        // Wie addEsriLayer: Konfiguration abwarten, ein Fehler beim Laden verhindert den Layer nicht
+        return this._loadConfig().then(() =>
             this._isStale(session) ? this._aborted() : this._addWMTSLayer_impl(_url, _layerName, _layerParams ?? {}, _sourceParams ?? {}, session));
     }
 
@@ -920,36 +896,34 @@ class StmaOpenLayers {
      * enthalten sein. Standardmäßig wird der WMS-Dienst als dynamischer Dienst behandelt; gekachelt eingebunden gilt er
      * als gecachter Dienst (wichtig für die zIndexe). Zum gekachelten Abruf `{TILED: true}` als `_sourceParams` übergeben.
      *
-     * @param _url URL zum WMS. Kartendienste des Stadtmessungsamtes werden über die Methode addStmaWMSLayer
-     *             hinzugefügt.
+     * @param _url URL zum WMS. Für Kartendienste des Stadtmessungsamtes ist addStmaWMSLayer gedacht; über diese Methode
+     *             erhalten sie dieselbe Quellenangabe und denselben zIndex. Ist die Konfiguration beim Aufruf noch nicht
+     *             geladen, werden beide nach dem Laden nachgetragen; ein zIndex in `_layerParams` bleibt.
      * @param _layerName Name des Layers, der eingebunden werden soll
      * @param _layerParams zusätzliche Parameter für das OpenLayers-Layer-Objekt
      * @param _sourceParams zusätzliche Parameter für das OpenLayers-Source-Objekt
      *
-     * @returns der hinzugefügte Layer oder ein erwartbarer Fehler. Asynchron, weil die Kartendienste des
-     *          Stadtmessungsamtes erst nach dem Laden der Konfiguration bekannt sind. Die Promise wird mit einem TypeError
-     *          abgelehnt, wenn die URL zu einem Kartendienst des Stadtmessungsamtes gehört.
+     * @returns der hinzugefügte Layer
      *
      * @throws TypeError bei ungültigen Parametern oder wenn ein Callback übergeben wird
      * @throws Error, wenn keine Karte initialisiert ist
      *
      * @example
      * ```js
-     * const r = await mymap.addWMSLayer("https://SERVERNAME/INSTANZ/gwc/service/wms", "LAYERNAME");
-     * const tiled = await mymap.addWMSLayer("https://SERVERNAME/INSTANZ/gwc/service/wms", "LAYERNAME", {}, {TILED: true});
+     * const layer = mymap.addWMSLayer("https://SERVERNAME/INSTANZ/gwc/service/wms", "LAYERNAME");
+     * const tiled = mymap.addWMSLayer("https://SERVERNAME/INSTANZ/gwc/service/wms", "LAYERNAME", {}, {TILED: true});
      * ```
      *
      * @since v2.1
      */
-    addWMSLayer(_url: string, _layerName: string, _layerParams: object = {}, _sourceParams: object = {}): Promise<Result<Layer>> {
+    addWMSLayer(_url: string, _layerName: string, _layerParams: object = {}, _sourceParams: object = {}): Layer {
         assertNoCallback(arguments, 4, 'addWMSLayer');
-        const session = this._requireSession('addWMSLayer');
-        const url = assertUrl(_url, '_url', 'addWMSLayer');
+        this._requireSession('addWMSLayer');
+        assertUrl(_url, '_url', 'addWMSLayer');
         assertString(_layerName, '_layerName', 'addWMSLayer');
         assertOptionalObject(_layerParams, '_layerParams', 'addWMSLayer');
         assertOptionalObject(_sourceParams, '_sourceParams', 'addWMSLayer');
-        return this._rejectStmaHost(url, 'wms', 'addWMSLayer', 'addStmaWMSLayer').then(() =>
-            this._isStale(session) ? this._aborted() : ok(this._addWMSLayer(_url, _layerName, _layerParams ?? {}, _sourceParams ?? {})));
+        return this._addWMSLayer(_url, _layerName, _layerParams ?? {}, _sourceParams ?? {});
     }
 
     /**

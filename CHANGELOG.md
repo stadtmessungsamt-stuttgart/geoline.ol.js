@@ -9,7 +9,7 @@ Versionen folgen [Semantic Versioning](https://semver.org/lang/de/). Details und
 Siehe [Migrationsleitfaden 3.x → 4.0](MIGRATION_3-4.md).
 
 - OpenLayers ist Peer-Dependency (`ol@^10.11.0`) und nicht mehr im Bundle; Anwendungen installieren `ol` und importieren `ol/ol.css` selbst. Einstiegspunkte über eine `exports`-Map, `…/src/…` ist nicht mehr erreichbar. → [OpenLayers als Peer-Dependency](MIGRATION_3-4.md#openlayers-als-peer-dependency-einstiegspunkte-und-css)
-- Callbacks entfallen: Methoden liefern Rückgabewerte, asynchrone Methoden `Promise<Result<…>>`. Programmierfehler werfen sofort. → [Rückgabewerte statt Callbacks](MIGRATION_3-4.md#rückgabewerte-statt-callbacks-beobachtbare-fehler)
+- Callbacks entfallen: Methoden liefern Rückgabewerte, asynchrone Methoden `Promise<Result<…>>`; `addWMSLayer` bleibt synchron und liefert den Layer. Programmierfehler werfen sofort. → [Rückgabewerte statt Callbacks](MIGRATION_3-4.md#rückgabewerte-statt-callbacks-beobachtbare-fehler)
 - `getConfig()` wird zu `loadConfig()`. → [`loadConfig()`](MIGRATION_3-4.md#getconfig-wird-zu-loadconfig)
 - Konfiguration und GeoJSON werden geprüft; Dienste in der Konfiguration nur noch als Objekt je Name. → [Konfiguration](MIGRATION_3-4.md#die-konfiguration-wird-geprüft), [GeoJSON](MIGRATION_3-4.md#geojson-wird-geprüft)
 - `dispose()`; ein zweites `initMap` auf derselben Instanz wirft. → [Lebenszyklus](MIGRATION_3-4.md#lebenszyklus-dispose)

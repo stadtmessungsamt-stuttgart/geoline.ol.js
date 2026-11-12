@@ -190,12 +190,15 @@ describe('Konfiguration', () => {
             });
         });
 
-        it('weist Stma-Dienste anhand der Standard-Hosts zurück, auch ohne benannte Dienste', () => {
+        it('erkennt Stma-Dienste anhand der Standard-Hosts, auch ohne benannte Dienste', () => {
             cy.intercept('POST', CONFIG_URL, {body: {...CONFIG, wms_services: {}}});
-            cy.then(() => initMap().addWMSLayer('https://wms.stma.test/geoserver/ows', 'Layer').then(
-                () => expect.fail('Promise hätte abgelehnt werden müssen'),
-                (err) => expect(err.message).to.include('addStmaWMSLayer')
-            ));
+            cy.then(() => {
+                const geoline = initMap();
+                return geoline.loadConfig().then(() => {
+                    const layer = geoline.addWMSLayer('https://wms.stma.test/geoserver/ows', 'Layer');
+                    expect(layer.getZIndex()).to.equal(50);
+                });
+            });
         });
     });
 });
