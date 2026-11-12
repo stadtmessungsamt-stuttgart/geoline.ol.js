@@ -113,7 +113,7 @@ Empfohlener Ablauf:
 2. Version anheben
    - Version in `package.json` anheben (`npm version X.Y.Z --no-git-tag-version`)
    - Änderungen commiten
-   - Tag erstellen (Als Tag-Namen das Schema `X.Y.Z` passend zur `package.json` verwenden.
+   - Tag erstellen: Schema `X.Y.Z` ohne Präfix, genau die Version aus `package.json` (der Workflow bricht sonst vor der Veröffentlichung ab).
 3. Änderungen pushen
    - `git push`
    - `git push --tags`
@@ -125,10 +125,14 @@ Empfohlener Ablauf:
    - Der Workflow `.github/workflows/main.yml` startet bei veröffentlichtem Release:
      - Baut und packt das Paket einmal (`npm run pack-dist`)
      - Prüft genau dieses Paket (Verbrauchertest, API- und E2E-Tests)
-     - Veröffentlicht dieses Paket auf npm
+     - Prüft, dass Tag und Paketversion übereinstimmen
+     - Wartet auf die Freigabe in der Umgebung `npm` und veröffentlicht dieses Paket mit Provenance auf npm
+     - Baut die Beispiele und veröffentlicht sie auf GitHub Pages
    - Den Status im Tab "Actions" verfolgen. Bei Erfolg ist die Version auf npm verfügbar.
 
 Hinweise:
-- Der Publish-Job benötigt das GitHub-Secret `NPM_TOKEN`. Dieses sollte für das Repo bereits konfiguriert sein.
-- GitHub-Tag und Version in `package.json` müssen übereinstimmen.
+- Veröffentlicht wird über npm Trusted Publishing (OIDC), ohne gespeicherten Token. Voraussetzung im Repository und bei npm: Trusted Publisher für `main.yml` mit Umgebung `npm`, Umgebung `npm` mit Freigabe, Pages-Quelle „GitHub Actions“.
+- Die CI läuft für Pull Requests, Pushes auf `master`, wöchentlich (montags) und bei Releases. Ein Branch ohne Pull Request wird nicht getestet. Neuere Commits im selben Pull Request brechen ältere Läufe ab. Der Audit ist ein eigener Job und blockiert nur die Veröffentlichung; die E2E-Tests gegen die Dienste von stuttgart.de laufen nur mit Node 24 und wiederholen einen fehlgeschlagenen Test einmal.
+- Die Actions sind auf Commit-SHAs gepinnt; Dependabot (`.github/dependabot.yml`) schlägt Aktualisierungen wöchentlich als Pull Request vor.
+- Jobs ohne Push-Bedarf checken ohne gespeicherte Zugangsdaten aus (`persist-credentials: false`); Schreibrechte fordert nur der jeweilige Job an.
 - Sicherheitscheck optional: `npm run audit` (nur Prod-Abhängigkeiten, siehe Scripts in `package.json`).

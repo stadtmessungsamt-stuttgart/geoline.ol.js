@@ -1,9 +1,10 @@
 name: Test and Publish
 
 on:
+  # Branches laufen über ihren Pull Request; push nur für master, damit kein Commit doppelt getestet wird
   push:
     branches:
-      - '**'
+      - master
   pull_request:
   release:
     types: [published]
@@ -12,13 +13,41 @@ on:
     - cron: '0 3 * * 1'
   workflow_dispatch:
 
+# Standard für alle Jobs: nur lesen. Schreibrechte fordert jeder Job einzeln an.
 permissions:
   contents: read
 
+# Neuere Commits im selben Pull Request brechen ältere Läufe ab; master, Zeitplan und Releases laufen immer zu Ende
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  audit:
+    name: Security audit (npm, Laufzeit-Abhängigkeiten)
+    # Eigener Job: Ein neuer Befund blockiert die Veröffentlichung, aber nicht die Tests unabhängiger Änderungen
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+
+      - name: Security audit (npm)
+        # Liest nur package-lock.json, braucht kein npm ci
+        run: npm run audit
+
   test:
     name: Tests (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    # Hängende Abrufe der Dienste von stuttgart.de sollen den Lauf nicht bis zum Standardlimit von 6 h blockieren
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -26,19 +55,18 @@ jobs:
         node: ['24', '22']
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node }}
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Security audit (npm)
-        run: npm run audit
 
       - name: Lint (oxlint, TSDoc-Pflicht für öffentliche Exporte)
         run: npm run lint
@@ -57,14 +85,16 @@ jobs:
           CI: true
 
       - name: Run E2E tests (Cypress)
-        # Starts the example server and runs Cypress in Chrome against the built dist
+        # Starts the example server and runs Cypress in Chrome against the built dist.
+        # Only once per run: the examples call the live services of stuttgart.de, the Node version does not matter there.
+        if: matrix.node == '24'
         run: npm run test-e2e
         env:
           CI: true
 
       - name: Keep the tested package for publishing
         if: matrix.node == '24'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: package
           path: .pack/*.tgz
@@ -73,44 +103,59 @@ jobs:
   publish:
     name: Publish to npm
     if: github.event_name == 'release'
-    needs: test
+    needs: [audit, test]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Freigabe und Beschränkung auf Release-Tags in der Umgebung, Name wie im Trusted Publisher auf npmjs.com
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write   # kurzlebige Berechtigung für npm Trusted Publishing, kein NPM_TOKEN
     steps:
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Download the tested package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: package
           path: package
 
-      - name: Publish package to npm
-        # Publishes the tarball tested in the test job instead of building again
-        run: npm publish ./package/*.tgz --access public
+      - name: Check that the release tag matches the package version
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(tar -xOzf package/*.tgz package/package.json | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")
+          # Tags folgen dem Schema X.Y.Z ohne Präfix (wie 3.1.1)
+          if [ "$TAG" != "$version" ]; then
+            echo "::error::Release-Tag $TAG passt nicht zur Paketversion $version"
+            exit 1
+          fi
 
-  deploy_pages:
-    name: Deploy GitHub Pages
+      - name: Publish package to npm
+        # Publishes the tarball tested in the test job instead of building again.
+        # Trusted Publishing needs npm >= 11.5.1 (Node 24 ships it); provenance links the version to this workflow.
+        run: |
+          npm --version
+          npm publish ./package/*.tgz --access public --provenance
+
+  build_pages:
+    name: Build GitHub Pages
     if: github.event_name == 'release'
     needs: publish
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pages: write      # to deploy to Pages
-      id-token: write   # to verify the deployment originates from an appropriate source
+    timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
           cache: 'npm'
@@ -118,13 +163,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Configure Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+      - name: Build examples
+        run: npm run build-examples
 
-      - name: Build and deploy to GitHub Pages
-        run: npm run deploy-gh-pages
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: demo
+
+  deploy_pages:
+    name: Deploy GitHub Pages
+    if: github.event_name == 'release'
+    needs: build_pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write      # to deploy to Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
