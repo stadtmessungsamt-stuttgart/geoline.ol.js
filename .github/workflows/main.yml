@@ -47,7 +47,7 @@ jobs:
     name: Tests (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
     # Hängende Abrufe der Dienste von stuttgart.de sollen den Lauf nicht bis zum Standardlimit von 6 h blockieren
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -89,6 +89,20 @@ jobs:
         # Only once per run: the examples call the live services of stuttgart.de, the Node version does not matter there.
         if: matrix.node == '24'
         run: npm run test-e2e
+        env:
+          CI: true
+
+      - name: Run API tests in Firefox (Cypress)
+        # Popup, keyboard and CSS behaviour in a second engine; fixtures only, no load on the services of stuttgart.de
+        if: matrix.node == '24'
+        run: npm run test-api-firefox
+        env:
+          CI: true
+
+      - name: Run E2E tests in Firefox (Cypress)
+        # Live services: not for every pull request commit, only on master, weekly and for releases
+        if: matrix.node == '24' && github.event_name != 'pull_request'
+        run: npm run test-e2e-firefox
         env:
           CI: true
 

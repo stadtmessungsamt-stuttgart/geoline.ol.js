@@ -61,6 +61,8 @@
     "test-consumer": "node scripts/check-consumer.mjs && cypress run --config-file cypress.consumer.config.js --browser chrome",
     "test-api": "cypress run --config-file cypress.api.config.js --browser chrome",
     "test-e2e": "concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress run --browser chrome\"",
+    "test-api-firefox": "cypress run --config-file cypress.api.config.js --browser firefox",
+    "test-e2e-firefox": "concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress run --browser firefox\"",
     "cypress-api": "npm run build-dist && npm run test-api",
     "cypress-run": "npm run build-dist && npm run test-e2e",
     "cypress-open": "npm run build-dist && concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress open\""

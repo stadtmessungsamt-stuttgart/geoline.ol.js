@@ -21,12 +21,15 @@ describe('Abruf von Dienstinformationen', () => {
         cy.intercept('POST', CONFIG_URL, {body: CONFIG});
         // Kartenbilder des dynamischen Dienstes nicht wirklich abrufen
         cy.intercept({hostname: 'ags.extern.test', pathname: /\/export$/}, {statusCode: 204});
-        target = document.createElement('div');
-        target.style.width = '400px';
-        target.style.height = '300px';
-        document.body.appendChild(target);
-        geoline = new StmaOpenLayers();
-        geoline.initMap(25832, {target});
+        // In cy.then, damit die Intercepts schon greifen; sonst ginge der Konfigurationsabruf an den echten Dienst
+        cy.then(() => {
+            target = document.createElement('div');
+            target.style.width = '400px';
+            target.style.height = '300px';
+            document.body.appendChild(target);
+            geoline = new StmaOpenLayers();
+            geoline.initMap(25832, {target});
+        });
     });
 
     afterEach(() => {
@@ -63,9 +66,6 @@ describe('Abruf von Dienstinformationen', () => {
         cy.intercept({hostname: 'ags.stma.test', pathname: '/arcgis/rest/services/Test/MapServer'}, {body: {...AGS_INFO, copyrightText: ''}});
         cy.intercept({hostname: 'ags.stma.test', pathname: /\/export$/}, {statusCode: 204});
         cy.then(async () => {
-            // Karte neu aufbauen: Erst jetzt greift der Intercept der Konfiguration (beforeEach ruft initMap synchron auf)
-            geoline.dispose();
-            geoline.initMap(25832, {target});
             const result = await geoline.addEsriLayer('https://ags.stma.test/arcgis/rest/services/Test/MapServer');
             expect(result.ok, JSON.stringify(result.error)).to.equal(true);
             expect(result.value.getZIndex()).to.equal(50);

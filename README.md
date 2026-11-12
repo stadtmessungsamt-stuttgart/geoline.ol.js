@@ -45,7 +45,7 @@ const map = geoline.initMap(25832, {target: 'map'});
 
 ### Zielumgebung
 
-- Browser: aktuelle Evergreen-Browser (ES2020, natives ESM). Der Build transpiliert nicht.
+- Browser: aktuelle Evergreen-Browser (ES2020, natives ESM). Der Build transpiliert nicht. Automatisch getestet in Chrome und Firefox; Safari wird vor jedem Release manuell geprüft.
 - Bundler: Webpack 5 und Vite.
 - TypeScript: ab 5.7 (getestet 5.7 und 7.0), `moduleResolution` `bundler` oder `nodenext`, ohne `skipLibCheck`. Die Untergrenze kommt von OpenLayers und dessen Abhängigkeiten; mit `skipLibCheck` genügt TypeScript 5.0. Für CSS-Importe braucht das Projekt eine Deklaration, z. B. `declare module '*.css';` oder die Typen des Bundlers (`vite/client`). Wer selbst `ol/format/GeoJSON` importiert, braucht `@types/geojson`.
 - CDN als ESM nur mit einer Import-Map für `ol`, weil geoline.ol.js OpenLayers als `ol/…` importiert. Immer mit fester Hauptversion einbinden.

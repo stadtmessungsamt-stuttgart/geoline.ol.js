@@ -110,6 +110,7 @@ Empfohlener Ablauf:
      - `npm ci`
      - `npm run serve-examples` (optional zur Sichtprüfung)
      - `npm run cypress-api` und `npm run cypress-run`
+     - Safari (manuell, nicht automatisiert): `npm run serve-examples`, alle Beispielseiten öffnen; Karte, Popup per Klick und per Tastatur (Enter/Escape) und Quellenangabe prüfen
 2. Version anheben
    - Version in `package.json` anheben (`npm version X.Y.Z --no-git-tag-version`)
    - Änderungen commiten
@@ -132,7 +133,7 @@ Empfohlener Ablauf:
 
 Hinweise:
 - Veröffentlicht wird über npm Trusted Publishing (OIDC), ohne gespeicherten Token. Voraussetzung im Repository und bei npm: Trusted Publisher für `main.yml` mit Umgebung `npm`, Umgebung `npm` mit Freigabe, Pages-Quelle „GitHub Actions“.
-- Die CI läuft für Pull Requests, Pushes auf `master`, wöchentlich (montags) und bei Releases. Ein Branch ohne Pull Request wird nicht getestet. Neuere Commits im selben Pull Request brechen ältere Läufe ab. Der Audit ist ein eigener Job und blockiert nur die Veröffentlichung; die E2E-Tests gegen die Dienste von stuttgart.de laufen nur mit Node 24 und wiederholen einen fehlgeschlagenen Test einmal.
+- Die CI läuft für Pull Requests, Pushes auf `master`, wöchentlich (montags) und bei Releases. Ein Branch ohne Pull Request wird nicht getestet. Neuere Commits im selben Pull Request brechen ältere Läufe ab. Der Audit ist ein eigener Job und blockiert nur die Veröffentlichung; die E2E-Tests gegen die Dienste von stuttgart.de laufen nur mit Node 24 und wiederholen einen fehlgeschlagenen Test einmal. Firefox: API-Tests in jedem Lauf, E2E-Tests nicht für Pull Requests (Last auf den Live-Diensten). Der Verbrauchertest prüft das TS-Beispiel auch mit TypeScript 5.7 (Untergrenze).
 - Die Actions sind auf Commit-SHAs gepinnt; Dependabot (`.github/dependabot.yml`) schlägt Aktualisierungen wöchentlich als Pull Request vor.
 - Jobs ohne Push-Bedarf checken ohne gespeicherte Zugangsdaten aus (`persist-credentials: false`); Schreibrechte fordert nur der jeweilige Job an.
 - Sicherheitscheck optional: `npm run audit` (nur Prod-Abhängigkeiten, siehe Scripts in `package.json`).
