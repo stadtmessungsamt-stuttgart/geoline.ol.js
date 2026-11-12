@@ -52,7 +52,7 @@
   "scripts": {
     "audit": "npm audit --omit=dev",
     "lint": "oxlint src",
-    "build-dist": "webpack --config webpack.dist.config.cjs --mode production && tsc -p tsconfig.json",
+    "build-dist": "webpack --config webpack.dist.config.cjs --mode production && tsc -p tsconfig.json && node scripts/third-party-licenses.mjs",
     "build-dev": "webpack --config webpack.dist.config.cjs --watch",
     "pack-dist": "npm run build-dist && node scripts/check-bundle.mjs && rm -rf .pack && mkdir .pack && npm pack --pack-destination .pack",
     "build-examples": "npm run build-dist && webpack --config webpack.examples.config.cjs",

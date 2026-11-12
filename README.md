@@ -1,6 +1,6 @@
 # geoline.ol.js
 Eine API auf Basis von OpenLayers zur einfachen
-Einbindung der Kartendienste der Stadtmessungsamtes Stuttgart.
+Einbindung der Kartendienste des Stadtmessungsamtes Stuttgart.
 
 Aktuell basiert dieses Modul auf _OpenLayers v10_.
 
@@ -59,6 +59,31 @@ geoline.ol.js und Ihre Anwendung müssen dieselben OpenLayers-Klassen verwenden,
 
 Das Beispiel „mit eigenen OpenLayers-Layern, -Controls und -Overlays“ zeigt die gemeinsame Nutzung.
 
+## Ergebnisse, Fehler und Lebenszyklus
+
+Methoden liefern ihr Ergebnis als Rückgabewert; asynchrone Methoden als Promise. Es gibt drei Arten von Fehlern:
+
+- **Programmierfehler** (falscher Parameter, Aufruf vor `initMap` oder nach `dispose()`): Die Methode wirft sofort einen `TypeError` bzw. `Error`.
+- **Dienst- und Datenfehler** (Dienst nicht erreichbar, ungültige Daten, unpassende Projektion): Rückgabe `{ok: false, error: {code, message}}`. Die Promise wird nicht abgelehnt.
+- **Interne Fehler** der Bibliothek: Exception bzw. abgelehnte Promise. Bitte als Fehler melden.
+
+```js
+const r = await geoline.addStmaEsriLayer('1_Base/Stadtkarte_Internet_c_EPSG25832');
+if (r.ok) {
+    const layer = r.value;
+} else if (r.error.code !== 'ABORTED') {
+    console.warn(r.error.code, r.error.message);
+}
+```
+
+Neue Fehlercodes können in Minor-Versionen hinzukommen; Auswertungen brauchen einen Default-Zweig. Ein fehlgeschlagener Abruf wird nicht zwischengespeichert, ein erneuter Aufruf fragt neu an. Codes und Rückgaben je Methode: [Migrationsleitfaden, Result-Objekt](MIGRATION_3-4.md#result-objekt).
+
+**Lebenszyklus:** Eine Instanz gehört zu genau einer Karte. Ein zweites `initMap` auf derselben Instanz wirft. `dispose()` bricht laufende Anfragen ab (offene Promises liefern `ABORTED`), entfernt Listener, Overlays und Caches und löst die Karte vom Element; danach ist ein neues `initMap` möglich. Details: [Lebenszyklus](MIGRATION_3-4.md#lebenszyklus-dispose).
+
+**Mehrere Karten:** Je Karte eine eigene Instanz. Jede Instanz spricht nur ihre eigenen Elemente an; jede weitere Karte braucht eine eigene `popupId` (siehe [Popups](#popups-und-quellenangaben)).
+
+**Konfigurationsdienst:** Mit `initMap` lädt geoline.ol.js die Konfiguration der Dienste des Stadtmessungsamts per POST, außer sie wird über `initMap(…, {config})` manuell gesetzt. `loadConfig()` liefert sie als Result. Gesendet werden nur `v` (Paketversion), `epsg` (Projektion der Karte) und `url` (Origin und Pfad der Seite, ohne Query und Fragment); der Betreiber wertet sie für eine Nutzungsstatistik aus. Vertrauliche Daten gehören deshalb nicht in den Pfad der Seite.
+
 ## Popups und Quellenangaben
 
 `addOverlayForLayer(layer, fn)` zeigt beim Klick auf ein Objekt des Layers ein Popup. Ein String als Rückgabewert von `fn(feature)` wird **ungefiltert als HTML** eingesetzt, ein DOM-Knoten unverändert. Werte aus Kartendiensten, Daten oder Benutzereingaben muss die Anwendung vorher escapen; DOM-Inhalte, die aus solchen Werten entstehen, sind ebenso wenig automatisch sicher. Bei leerem Rückgabewert (`''`, `null`, `undefined`) bleibt das Popup geschlossen.
@@ -100,53 +125,10 @@ Das Repository enthält verschiedene Beispiele im Ordner
 Die Beispiele können auch direkt über [GitHub Pages](https://stadtmessungsamt-stuttgart.github.io/geoline.ol.js/) aufgerufen werden.
 
 
-## Änderungen in Version 3.0
+## Migration zwischen Hauptversionen
 
-In Version 3.0 wurden folgende Anpassungen und Erweiterungen vorgenommen:
-
-- Aktualisierung auf OpenLayers v10: Das Modul basiert nun auf OpenLayers 10 und wurde entsprechend angepasst.
-- ES Module (ESM) als Standard: Das Paket ist ESM-only (package.json: "type": "module").
-- TypeScript-Typdefinitionen: Bereitstellung von Deklarationsdateien (dist/geoline.ol.d.ts) für bessere Entwickler-Experience.
-- Separates CSS-Bundle: Styles liegen in dist/geoline.ol.css und sind zusätzlich über das Feld "style" im Paket referenziert.
-- Die "Grundkarte" als `StmaBaseLayer` ist als "deprectaed" markiert worden. In Zukunft soll "Basemap" verwendet werden. 
-  _Siehe example_UTM_25832.js_
-
-
-## Breaking Changes
-
-Potenziell inkompatible Änderungen und Migrationshinweise:
-
-1) Gauß-Krüger Karten (EPSG:31467) werden nicht mehr unterstützt
-
-
-2) Nur noch ES Module (kein CommonJS):  
-   Statt require() muss Import-Syntax verwendet werden.    
-   Beispiel:
-    ```
-    import GeoLine from '@stadtmessungsamt-stuttgart/geoline.ol.js';
-    ```
-
-3) Keine globale UMD-Einbindung mehr:  
-   Eine Nutzung über ein globales Fenster-Objekt via `<script>`-Tag ohne Bundler wird nicht mehr unterstützt.  
-   Es sollte ein entsprechender Build-Prozess (z.B. Webpack, Vite, Rollup) verwendet werden.
-
- 
-4) CSS muss explizit eingebunden werden:   
-   ```
-   import '@stadtmessungsamt-stuttgart/geoline.ol.js/dist/geoline.ol.css';
-   ```
-
-
-5) Mindestanforderungen an Umgebung:
-   - Moderne Browser mit nativer Modulunterstützung (ESM) werden vorausgesetzt.
-   - Für Server-/Build-Tools wird Node.js ≥ 18 empfohlen.
-
-    
-6) Geänderte Importpfade und benannte Exporte:  
-   Die Exporte des Mudols wurden aktualisiert:
-   ```
-   export default StmaOpenLayers;
-   ```
+- [Migrationsleitfaden 3.x → 4.0](MIGRATION_3-4.md): Breaking Changes von Version 4.0. Übersicht im [CHANGELOG](CHANGELOG.md).
+- [Migrationsleitfaden 2.x → 3.0](MIGRATION_2-3.md): Änderungen und Breaking Changes von Version 3.0.
 
 
 ## Lizenz API
@@ -160,6 +142,8 @@ und die neue Version unter denselben Bedingungen lizenziert wird. Weder das Orig
 veränderte Version darf kommerziell verwendet werden.
 
 Eine Kopie der Lizenz ist in diesem Repository unter [LICENCE](https://github.com/stadtmessungsamt-stuttgart/geoline.ol.js/blob/master/LICENSE) verfügbar.
+
+In `dist/geoline.ol.js` sind `proj4` und dessen Abhängigkeiten eingebettet. Ihre Lizenzen liegen im npm-Paket unter `dist/THIRD_PARTY_LICENSES.txt`.
 
 
 ## Lizenz Kartendienste und -inhalte

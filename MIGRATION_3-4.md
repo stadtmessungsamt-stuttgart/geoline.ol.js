@@ -236,6 +236,15 @@ Den `copyrightText` aus der Dienstbeschreibung von ArcGIS-Diensten zeigt geoline
 - **Kontextmenü:** weiter standardmäßig unterbunden, mit `initMap(…, {contextMenu: true})` abschaltbar.
 - **`pixelRatio`** bleibt 1, ist aber über `_mapParams.pixelRatio` überschreibbar; in 3.x wurde die Angabe ignoriert.
 
+## TypeScript-Deklarationen
+
+Die Deklarationen entstehen aus TypeScript-Quellcode und kompilieren ohne `skipLibCheck`. In 3.x scheiterten sie daran (`int`, `integer`).
+
+- **Genauere Typen:** `getMap()` liefert `Map` statt `object`, asynchrone Methoden `Promise<Result<…>>`, die Overlay-Funktion `(feature) => string | Node | null | undefined`. Code, der bisher mit `any` oder Casts gearbeitet hat, kann diese entfernen; Zugriffe auf `result.value` brauchen vorher die Prüfung von `ok`.
+- **Interne Member** sind `private` und erscheinen ohne Typ; `Session` wird nicht mehr exportiert. Neu exportiert ist `GeolineCustomParams` (viertes Argument von `initMap`).
+- **Map-, View-, Layer- und Source-Parameter** bleiben `object`, damit zusätzliche Schlüssel wie `TILED` weiter erlaubt sind.
+- **Projekt-Einstellungen:** `moduleResolution` `bundler` oder `nodenext`. CSS-Importe brauchen eine Deklaration, z. B. `declare module '*.css';` oder `vite/client`. Wer selbst `ol/format/GeoJSON` importiert, installiert `@types/geojson`.
+
 ## Eigene Dienste brauchen CORS
 
 Dienstinformationen von ArcGIS-Servern lädt geoline.ol.js nicht mehr per JSONP, sondern per `fetch`. JSONP hat die Antwort als Script in der Anwendung ausgeführt. Einen Legacy-Modus gibt es nicht.

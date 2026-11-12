@@ -91,7 +91,7 @@ Troubleshooting:
 - Leere Beispielseite/nicht geladenes JS: Der Dev Server baut die Beispiele automatisch. Prüfen Sie die Terminalausgabe des Dev Servers auf Fehler.
 
 ## Troubleshooting (weiteres)
-- Kaputte Abhängigkeiten: `rm -rf node_modules package-lock.json && npm install` ausführen.
+- Kaputte Abhängigkeiten: `rm -rf node_modules && npm ci` ausführen. `package-lock.json` nicht löschen, sonst entstehen ungeprüfte Versionsstände.
 
 ## Nützliche Ordner
 - `src/` – Bibliotheksquellcode
@@ -136,3 +136,9 @@ Hinweise:
 - Die Actions sind auf Commit-SHAs gepinnt; Dependabot (`.github/dependabot.yml`) schlägt Aktualisierungen wöchentlich als Pull Request vor.
 - Jobs ohne Push-Bedarf checken ohne gespeicherte Zugangsdaten aus (`persist-credentials: false`); Schreibrechte fordert nur der jeweilige Job an.
 - Sicherheitscheck optional: `npm run audit` (nur Prod-Abhängigkeiten, siehe Scripts in `package.json`).
+
+## Review-Regeln
+- Jede Änderung an `master` läuft über einen Pull Request mit grüner CI.
+- Ein zweites Paar Augen ist Pflicht bei sicherheitsrelevanten Änderungen: Workflows unter `.github/`, `package.json` und `package-lock.json` (neue oder angehobene Abhängigkeiten), HTML-Ausgabe (Popups, `src/html.ts`, Quellenangaben), Konfigurations- und Netzwerkzugriffe (`src/config.ts`, `src/request-cache.ts`).
+- Veröffentlicht wird erst nach Freigabe durch eine der in der Umgebung `npm` eingetragenen Personen (Required reviewers).
+- Breaking Changes stehen vor dem Merge im CHANGELOG und im Migrationsleitfaden.
