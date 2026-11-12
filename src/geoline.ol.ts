@@ -1214,7 +1214,7 @@ class StmaOpenLayers {
      *
      * @param _url URL zur GeoJSON-Datei, auch relativ zur Seite
      * @param _zoomTo passt den sichtbaren Bereich der Karte so an, dass alle Objekte vollständig sichtbar sind
-     * @param _style Ausprägung der Objekte
+     * @param _style Ausprägung der Objekte; ohne Angabe der Standardstil von OpenLayers
      *
      * @returns der hinzugefügte Vektor-Layer oder ein erwartbarer Fehler: `SERVICE_UNAVAILABLE`, wenn die Datei nicht
      *          abrufbar ist, `INVALID_DATA` bei ungültigem Inhalt
@@ -1229,7 +1229,7 @@ class StmaOpenLayers {
      *
      * @since v2.0
      */
-    addGeoJSONfromURL(_url: string, _zoomTo: boolean = false, _style: StyleLike | FlatStyleLike = {}): Promise<Result<LayerVector>> {
+    addGeoJSONfromURL(_url: string, _zoomTo: boolean = false, _style?: StyleLike | FlatStyleLike): Promise<Result<LayerVector>> {
         assertNoCallback(arguments, 3, 'addGeoJSONfromURL');
         const session = this._requireSession('addGeoJSONfromURL');
         assertString(_url, '_url', 'addGeoJSONfromURL');
@@ -1264,7 +1264,7 @@ class StmaOpenLayers {
      *
      * @param _geojson GeoJSON-Objekt
      * @param _zoomTo passt den sichtbaren Bereich der Karte so an, dass alle Objekte vollständig sichtbar sind
-     * @param _style Ausprägung der Objekte
+     * @param _style Ausprägung der Objekte; ohne Angabe der Standardstil von OpenLayers
      *
      * @returns der hinzugefügte Vektor-Layer oder `INVALID_DATA`, wenn das GeoJSON nicht gelesen werden kann
      *
@@ -1278,7 +1278,7 @@ class StmaOpenLayers {
      *
      * @since v2.0
      */
-    addGeoJSON(_geojson: object, _zoomTo: boolean = false, _style: StyleLike | FlatStyleLike = {}): Result<LayerVector> {
+    addGeoJSON(_geojson: object, _zoomTo: boolean = false, _style?: StyleLike | FlatStyleLike): Result<LayerVector> {
         assertNoCallback(arguments, 3, 'addGeoJSON');
         const session = this._requireSession('addGeoJSON');
         assertObject(_geojson, '_geojson', 'addGeoJSON');
@@ -1292,10 +1292,10 @@ class StmaOpenLayers {
      *
      * @param _geojson GeoJSON-Daten
      * @param _zoomTo Ausschnitt auf die Objekte anpassen
-     * @param _style Ausprägung der Objekte
+     * @param _style Ausprägung der Objekte; ohne Angabe der Standardstil von OpenLayers
      * @param session Session beim Aufruf
      */
-    private _addGeoJSON(_geojson: unknown, _zoomTo: boolean, _style: StyleLike | FlatStyleLike, session: Session): Result<LayerVector> {
+    private _addGeoJSON(_geojson: unknown, _zoomTo: boolean, _style: StyleLike | FlatStyleLike | undefined, session: Session): Result<LayerVector> {
         const parsed = parseGeoJSON(_geojson);
         if (!parsed.ok) {
             return parsed;

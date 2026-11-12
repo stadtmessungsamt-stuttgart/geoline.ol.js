@@ -111,6 +111,15 @@ describe('GeoJSON', () => {
             }).ok).to.equal(true);
         });
 
+        it('zeichnet Objekte ohne Style im Standardstil von OpenLayers', () => {
+            const map = geoline.getMap();
+            const center = map.getView().getCenter();
+            const layer = geoline.addGeoJSON({...UTM, features: [point(center)]}).value;
+            map.renderSync();
+            const hits = map.getFeaturesAtPixel(map.getPixelFromCoordinate(center), {layerFilter: (l) => l === layer});
+            expect(hits, 'sichtbar und anklickbar').to.have.length(1);
+        });
+
         it('wirft bei falschen Parametertypen', () => {
             expect(() => geoline.addGeoJSON('{"type": "Point"}')).to.throw('_geojson');
             expect(() => geoline.addGeoJSON(UTM, 'ja')).to.throw('_zoomTo');

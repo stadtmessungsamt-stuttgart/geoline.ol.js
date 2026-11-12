@@ -170,6 +170,7 @@ Im Konfigurationsabruf sendet geoline.ol.js im Parameter `url` nur noch Origin u
 
 - Ungültige Struktur oder Koordinaten melden `INVALID_DATA`. In 3.x warf `crs: null` einen `TypeError`; jetzt gilt wie bei fehlendem CRS EPSG:4326.
 - Eine unbekannte Projektion meldet `PROJECTION_MISMATCH`. In 3.x wurde nur geloggt und der Layer trotzdem eingefügt, meist an falscher Stelle.
+- Ohne `_style` erscheinen die Objekte im Standardstil von OpenLayers. In 3.x waren sie dann unsichtbar (leerer Style `{}`) und für Popups nicht anklickbar.
 - Mit `_zoomTo` wartet die Karte, bis sie eine Größe hat, und zoomt nur auf nicht leere Daten. `dispose()` beendet das Warten.
 
 ### Lebenszyklus: `dispose()`
