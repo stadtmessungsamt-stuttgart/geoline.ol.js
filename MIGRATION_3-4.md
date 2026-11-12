@@ -209,7 +209,7 @@ karte2.initMap(25832, {target: 'karte2'}, {}, {popupId: 'popup_karte2'});
 ```
 
 - Eine Karte, eigenes CSS auf `#geoline_ol_js_popup`: keine Änderung nötig.
-- Mehrere Karten: jede weitere Karte braucht eine eigene `popupId`. Ist die ID im Dokument schon vergeben oder kein String, wirft `initMap`. Eigenes CSS sollte die Klasse statt der ID verwenden.
+- Mehrere Karten: jede weitere Karte braucht eine eigene `popupId`. Ist die ID im Dokument oder von einer anderen geoline-Karte (auch außerhalb des Dokuments) schon vergeben oder kein String, wirft `initMap`. Eigenes CSS sollte die Klasse statt der ID verwenden.
 
 ## Ansicht und Projektion der Karte
 

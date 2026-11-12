@@ -123,6 +123,36 @@ describe('Styles und Bedienung', () => {
             expect(isOpen()).to.equal(false);
         });
 
+        it('bedient die Karte per Tastatur auch, wenn das Target erst später gesetzt oder gewechselt wird', () => {
+            geoline = new StmaOpenLayers();
+            const map = geoline.initMap(25832, {target: undefined});
+            const layer = new VectorLayer({source: new VectorSource({features: [new Feature(new Point(map.getView().getCenter()))]})});
+            map.addLayer(layer);
+            geoline.addOverlayForLayer(layer, () => 'Inhalt');
+
+            const other = document.createElement('div');
+            other.style.width = '400px';
+            other.style.height = '300px';
+            document.body.appendChild(other);
+            try {
+                map.setTarget(other);
+                map.renderSync();
+                expect(other.tabIndex, 'erstes Target fokussierbar').to.equal(0);
+
+                map.setTarget(target);
+                map.renderSync();
+                expect(other.hasAttribute('tabindex'), 'tabindex vom alten Target entfernt').to.equal(false);
+                key(other, 'Enter');
+                expect(isOpen(), 'altes Target reagiert nicht').to.equal(false);
+
+                expect(target.tabIndex, 'neues Target fokussierbar').to.equal(0);
+                key(target, 'Enter');
+                expect(isOpen(), 'offen').to.equal(true);
+            } finally {
+                other.remove();
+            }
+        });
+
         it('behält eine vorhandene tabindex und entfernt die eigene mit dispose()', () => {
             withOverlay(() => 'Inhalt');
             geoline.dispose();

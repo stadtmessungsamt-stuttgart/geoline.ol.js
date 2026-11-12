@@ -260,6 +260,25 @@ describe('API-Form', () => {
         });
     });
 
+    describe('Fehler beim Aufbau der Karte', () => {
+        it('hinterlässt keine halbe Karte; initMap kann erneut aufgerufen werden', () => {
+            const geoline = create();
+            const target = createTarget();
+            let thrown = null;
+            try {
+                geoline.initMap(25832, {target, controls: 42});
+            } catch (err) {
+                thrown = err;
+            }
+            expect(thrown, 'Fehler aus dem Aufbau').to.not.equal(null);
+            expectThrow(() => geoline.getMap(), Error, 'Keine aktive Karte');
+            expect(target.querySelector('.ol-viewport'), 'kein Viewport').to.equal(null);
+
+            const map = geoline.initMap(25832, {target});
+            expect(geoline.getMap()).to.equal(map);
+        });
+    });
+
     describe('mehrere Karten auf einer Seite', () => {
         it('verlangt eine eigene Popup-ID für jede weitere Karte', () => {
             initMap();
@@ -274,6 +293,16 @@ describe('API-Form', () => {
             initMap().dispose();
             expect(document.getElementById('geoline_ol_js_popup')).to.equal(null);
             expect(() => initMap()).to.not.throw();
+        });
+
+        it('erkennt eine doppelte Popup-ID auch bei Karten außerhalb des Dokuments', () => {
+            const first = create();
+            first.initMap(25832, {target: undefined});
+            expect(document.getElementById('geoline_ol_js_popup'), 'nicht im Dokument').to.equal(null);
+            expectThrow(() => create().initMap(25832, {target: undefined}), Error, 'bereits vergeben');
+
+            first.dispose();
+            expect(() => create().initMap(25832, {target: undefined})).to.not.throw();
         });
 
         it('unterdrückt das Kontextmenü auf jeder Karte, aber nicht auf der Seite', () => {

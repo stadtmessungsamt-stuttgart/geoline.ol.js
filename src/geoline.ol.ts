@@ -177,6 +177,9 @@ class StmaOpenLayers {
     private _addedTabIndex: HTMLElement | null = null;
     private geojsonFormats = new globalThis.Map<string, FormatGeoJSON>();
     private _session: Session | null = null;
+    private popupId: string | null = null;
+    /** Popup-IDs aller Karten bis zu ihrem dispose(), auch wenn die Karte (noch) nicht im Dokument hängt. */
+    private static readonly activePopupIds = new Set<string>();
 
     /**
      * Konstruktor
@@ -624,7 +627,9 @@ class StmaOpenLayers {
      * @returns die OpenLayers-Karte
      *
      * @throws TypeError bei ungültigen Parametern oder wenn ein Callback übergeben wird
-     * @throws Error, wenn die Instanz bereits eine Karte hat oder die Popup-ID im Dokument vergeben ist
+     * @throws Error, wenn die Instanz bereits eine Karte hat oder die Popup-ID im Dokument oder von einer anderen Karte
+     *         vergeben ist. Scheitert der Aufbau der Karte, bleibt die Instanz ohne Karte und initMap() kann erneut
+     *         aufgerufen werden.
      *
      * @example
      * ```js
@@ -662,12 +667,36 @@ class StmaOpenLayers {
         assertBoolean(contextMenu, '_customParams.contextMenu', 'initMap');
         const popupId: unknown = customParams.popupId ?? DEFAULT_POPUP_ID;
         assertString(popupId, '_customParams.popupId', 'initMap');
-        if (document.getElementById(popupId) !== null) {
-            throw new Error("initMap: Die Popup-ID '" + popupId + "' ist im Dokument bereits vergeben. Für weitere Karten _customParams.popupId angeben.");
+        if (document.getElementById(popupId) !== null || StmaOpenLayers.activePopupIds.has(popupId)) {
+            throw new Error("initMap: Die Popup-ID '" + popupId + "' ist bereits vergeben (im Dokument oder von einer anderen Karte). Für weitere Karten _customParams.popupId angeben.");
         }
 
         const controller = new AbortController();
         this._session = {controller, requests: new RequestCache(controller.signal)};
+        this.popupId = popupId;
+        StmaOpenLayers.activePopupIds.add(popupId);
+        try {
+            return this._buildMap(_epsgCode, _mapParams, _viewParams, customParams, manualConfig, popupId, contextMenu);
+        } catch (err) {
+            // Ein Fehler beim Aufbau (z. B. ungültige Parameter für OpenLayers) darf keine halbe Karte hinterlassen
+            this.dispose();
+            throw err;
+        }
+    }
+
+    /**
+     * Baut die Karte der neuen Session auf; Teil von initMap() nach der Prüfung der Parameter.
+     *
+     * @param _epsgCode EPSG-Code der Karte (25832 oder 3857)
+     * @param _mapParams Parameter der Anwendung für die OpenLayers-Map
+     * @param _viewParams Parameter der Anwendung für die OpenLayers-View
+     * @param customParams geprüfte Parameter für geoline.ol.js
+     * @param manualConfig geprüfte manuelle Konfiguration oder null
+     * @param popupId ID des Popup-Elements
+     * @param contextMenu Kontextmenü des Browsers zulassen
+     */
+    private _buildMap(_epsgCode: number, _mapParams: object | null | undefined, _viewParams: object | null | undefined,
+                      customParams: GeolineCustomParams, manualConfig: GeolineConfig | null, popupId: string, contextMenu: boolean): Map {
 
         // UTM-Projektion registrieren; EPSG:3857 und EPSG:4326 kennt OpenLayers selbst
         proj4.defs("EPSG:25832", "+proj=utm +zone=32 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
@@ -788,6 +817,10 @@ class StmaOpenLayers {
         // Zuerst die Session lösen, damit Ergebnisse, die während des Abbruchs eintreffen, als veraltet gelten.
         this._session = null;
         session.controller.abort();
+        if (this.popupId != null) {
+            StmaOpenLayers.activePopupIds.delete(this.popupId);
+            this.popupId = null;
+        }
         this._addedTabIndex?.removeAttribute('tabindex');
         this._addedTabIndex = null;
         this.map?.dispose();
@@ -1387,24 +1420,18 @@ class StmaOpenLayers {
 
     /**
      * Tastaturbedienung: Die Karte wird fokussierbar, Enter öffnet das Popup für das Objekt in der Kartenmitte
-     * (verschieben mit den Pfeiltasten), Escape schließt es.
+     * (verschieben mit den Pfeiltasten), Escape schließt es. Folgt dem Target der Karte, auch wenn die Anwendung es
+     * erst später oder neu setzt.
      *
      * @param session Session, mit deren Ende der Listener entfernt wird
      */
     private _registerOverlayKeys(session: Session): void {
         const map = this.olMap;
-        const target = map.getTargetElement();
-        if (target == null) {
-            return;
-        }
-        if (!target.hasAttribute('tabindex')) {
-            target.tabIndex = 0;
-            this._addedTabIndex = target;
-        }
-        target.addEventListener('keydown', (e) => {
+        let current: HTMLElement | null = null;
+        const onKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 this._closeOverlay(true);
-            } else if (e.key === 'Enter' && e.target === target) {
+            } else if (e.key === 'Enter' && e.target === current) {
                 const center = map.getView().getCenter();
                 const pixel = center && map.getPixelFromCoordinate(center);
                 if (center && pixel) {
@@ -1412,7 +1439,24 @@ class StmaOpenLayers {
                     this._openOverlayAt(pixel, center, true, 8);
                 }
             }
-        }, {signal: session.controller.signal});
+        };
+        const bind = () => {
+            current?.removeEventListener('keydown', onKeyDown);
+            this._addedTabIndex?.removeAttribute('tabindex');
+            this._addedTabIndex = null;
+            // map.dispose() setzt das Target auf null; dann ist die Session schon beendet
+            current = this._isStale(session) ? null : map.getTargetElement() ?? null;
+            if (current == null) {
+                return;
+            }
+            if (!current.hasAttribute('tabindex')) {
+                current.tabIndex = 0;
+                this._addedTabIndex = current;
+            }
+            current.addEventListener('keydown', onKeyDown, {signal: session.controller.signal});
+        };
+        bind();
+        map.on('change:target', bind);
     }
 
     /**

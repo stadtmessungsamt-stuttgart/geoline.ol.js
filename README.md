@@ -88,7 +88,7 @@ Neue Fehlercodes können in Minor-Versionen hinzukommen; Auswertungen brauchen e
 
 `addOverlayForLayer(layer, fn)` zeigt beim Klick auf ein Objekt des Layers ein Popup. Ein String als Rückgabewert von `fn(feature)` wird **ungefiltert als HTML** eingesetzt, ein DOM-Knoten unverändert. Werte aus Kartendiensten, Daten oder Benutzereingaben muss die Anwendung vorher escapen; DOM-Inhalte, die aus solchen Werten entstehen, sind ebenso wenig automatisch sicher. Bei leerem Rückgabewert (`''`, `null`, `undefined`) bleibt das Popup geschlossen.
 
-Tastatur: Die Karte erhält `tabindex="0"`, falls ihr Element keinen hat. Mit den Pfeiltasten wird die Karte verschoben, Enter öffnet das Popup für das Objekt in der Kartenmitte, Escape oder die Schaltfläche „Schließen“ schließt es. Der Fokus springt ins Popup und danach zurück auf die Karte.
+Tastatur: Die Karte erhält `tabindex="0"`, falls ihr Element keinen hat; das gilt auch für ein Element, das erst später per `setTarget` gesetzt wird. Mit den Pfeiltasten wird die Karte verschoben, Enter öffnet das Popup für das Objekt in der Kartenmitte, Escape oder die Schaltfläche „Schließen“ schließt es. Der Fokus springt ins Popup und danach zurück auf die Karte.
 
 Das Popup-Element gehört zum Vertrag und kann per CSS gestaltet werden:
 
