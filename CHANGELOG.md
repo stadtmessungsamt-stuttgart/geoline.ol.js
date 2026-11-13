@@ -31,6 +31,7 @@ Siehe [Migrationsleitfaden 3.x → 4.0](MIGRATION_3-4.md).
 
 ### Weitere Änderungen
 
+- Dienste des Stadtmessungsamtes lassen sich auch über `addEsriLayer`, `addWMTSLayer` und `addWMSLayer` einbinden und erhalten dieselbe Quellenangabe und denselben zIndex wie über `addStma*`.
 - Im Konfigurationsabruf enthält `url` nur noch Origin und Pfad der Seite, ohne Query und Fragment.
 - Styles über CSS-Variablen anpassbar, Kontrast der Bedienelemente verbessert; `pixelRatio` überschreibbar.
 - Lizenzen der eingebetteten Pakete (`proj4` und Abhängigkeiten) liegen unter `dist/THIRD_PARTY_LICENSES.txt`.

@@ -1,10 +1,23 @@
 # Migration von geoline.ol.js 3.x auf 4.0
 
-Diese Anleitung beschreibt die Änderungen, die Anwendungen beim Umstieg auf die neue Hauptversion anpassen müssen. Sie wird bis zum Release vervollständigt.
+Diese Anleitung beschreibt die Änderungen, die Anwendungen beim Umstieg auf die neue Hauptversion anpassen müssen. Die Checkliste nennt, was fast jede Anwendung betrifft; die weiteren Abschnitte gelten nur unter der jeweils genannten Bedingung.
 
-## OpenLayers als Peer-Dependency, Einstiegspunkte und CSS
+## Checkliste
 
-geoline.ol.js bringt keine eigene Kopie von OpenLayers mehr mit. Bisher arbeiteten Anwendungen, die OpenLayers selbst verwenden, mit zwei getrennten Kopien; Karten, Layer und Projektionen passten dann nicht zusammen.
+1. `ol` installieren und `ol/ol.css` importieren, Importpfade anpassen → [OpenLayers als Peer-Dependency](#openlayers-als-peer-dependency-einstiegspunkte-und-css)
+2. Callbacks durch Rückgabewerte bzw. `await` und `if (r.ok)` ersetzen → [Rückgabewerte statt Callbacks](#rückgabewerte-statt-callbacks-beobachtbare-fehler)
+3. `getConfig()` durch `loadConfig()` ersetzen → [`loadConfig()`](#getconfig-wird-zu-loadconfig)
+4. Ein zweites `initMap` nur nach `dispose()` → [Lebenszyklus](#lebenszyklus-dispose)
+5. Zoomstufen in EPSG:25832 prüfen; nur noch EPSG:25832 und EPSG:3857 → [Ansicht und Projektion](#ansicht-und-projektion-der-karte)
+6. Schrift der Seite und eigenes Popup-CSS prüfen → [Styles, Popup und Bedienung](#styles-popup-und-bedienung)
+
+Danach die Abschnitte unter [Nur betroffen, wenn …](#nur-betroffen-wenn-) durchsehen.
+
+## Betrifft alle Anwendungen
+
+### OpenLayers als Peer-Dependency, Einstiegspunkte und CSS
+
+geoline.ol.js bringt keine eigene Kopie von OpenLayers mehr mit; zwei Kopien in einer Anwendung passten nicht zusammen.
 
 - **`ol` selbst installieren:** `npm install ol` (unterstützt: `ol@^10.11.0`). Mit `npm ls ol` prüfen, dass nur eine Version installiert ist.
 - **OpenLayers-CSS selbst importieren:** `import 'ol/ol.css';`. Die CSS von geoline.ol.js enthält sie nicht mehr.
@@ -22,11 +35,11 @@ import StmaOpenLayers from '@stadtmessungsamt-stuttgart/geoline.ol.js';
 import '@stadtmessungsamt-stuttgart/geoline.ol.js/geoline.ol.css';
 ```
 
-## Rückgabewerte statt Callbacks, beobachtbare Fehler
+### Rückgabewerte statt Callbacks, beobachtbare Fehler
 
-In 3.x gaben die Methoden nichts zurück. Ergebnisse kamen nur über einen Callback als letzten Parameter, Fehler meist nur über `console.error`. Ab 4.0 liefern alle Methoden ihr Ergebnis als Rückgabewert, und Fehler erreichen den Aufrufer.
+In 3.x kamen Ergebnisse nur über einen Callback als letzten Parameter, Fehler meist nur über `console.error`. Ab 4.0 liefern alle Methoden ihr Ergebnis als Rückgabewert, und Fehler erreichen den Aufrufer.
 
-### Drei Arten von Fehlern
+#### Drei Arten von Fehlern
 
 | Art | Beispiele | Verhalten in 4.0 |
 |---|---|---|
@@ -36,9 +49,7 @@ In 3.x gaben die Methoden nichts zurück. Ergebnisse kamen nur über einen Callb
 
 Der synchrone Fehler fliegt beim Aufruf, auch bei asynchronen Methoden. `try { await … } catch` fängt ihn trotzdem.
 
-Dienste des Stadtmessungsamtes lassen sich auch über `addEsriLayer`, `addWMTSLayer` und `addWMSLayer` einbinden, z. B. unter einem Pfad, den die `addStma*`-Methoden nicht abdecken. Sie erhalten dann dieselbe Quellenangabe und denselben zIndex wie über `addStma*`; bei `addWMSLayer` werden beide nachgetragen, falls die Konfiguration beim Aufruf noch lädt. In 3.x wurde ein solcher Aufruf mit `console.error` verweigert, wenn die Konfiguration zufällig schon geladen war.
-
-### Result-Objekt
+#### Result-Objekt
 
 ```js
 { ok: true,  value: layer }
@@ -74,30 +85,27 @@ if (!r.ok) {
 const layer = r.value;
 ```
 
-### Rückgaben je Methode
+#### Rückgaben je Methode
 
-| Methode | 3.x | 4.0 |
+| Methode | 3.x: Callback-Argument | 4.0: Rückgabewert |
 |---|---|---|
-| `initMap` | nichts, Callback mit Map | `Map` |
-| `addEsriLayer`, `addStmaEsriLayer` | nichts, Callback mit Layer | `Promise<Result<Layer>>` |
-| `addWMTSLayer`, `addStmaWMTSLayer` | nichts, Callback mit Layer oder `false` | `Promise<Result<Layer>>` |
-| `addWMSLayer` | nichts, Callback mit Layer (synchron) | `Layer` (synchron) |
-| `addStmaWMSLayer` | nichts, Callback mit Layer | `Promise<Result<Layer>>` |
-| `addStmaBaseLayer` | nichts, Callback mit Layer | `Promise<Result<Layer>>` |
-| `addGeoJSONfromURL` | nichts, Callback mit Layer oder `false` | `Promise<Result<VectorLayer>>` |
-| `addGeoJSON` | nichts, Callback mit Layer | `Result<VectorLayer>` (synchron) |
-| `addPoints` | nichts, Callback mit Layer | `VectorLayer` |
-| `addOverlayForLayer` | nichts | nichts |
-| `getMap` | Map oder `null` | `Map`; wirft vor `initMap` |
-| `getConfig` | Konfiguration, während des Ladens ein Platzhalter | entfällt, siehe unten |
+| `initMap` | Map | `Map` |
+| `addEsriLayer`, `addStmaEsriLayer` | Layer | `Promise<Result<Layer>>` |
+| `addWMTSLayer`, `addStmaWMTSLayer` | Layer oder `false` | `Promise<Result<Layer>>` |
+| `addWMSLayer` | Layer (synchron) | `Layer` (synchron) |
+| `addStmaWMSLayer` | Layer | `Promise<Result<Layer>>` |
+| `addStmaBaseLayer` | Layer | `Promise<Result<Layer>>` |
+| `addGeoJSONfromURL` | Layer oder `false` | `Promise<Result<VectorLayer>>` |
+| `addGeoJSON` | Layer | `Result<VectorLayer>` (synchron) |
+| `addPoints` | Layer | `VectorLayer` |
+| `getMap` | – (Rückgabe Map oder `null`) | `Map`; wirft vor `initMap` |
+| `getConfig` | – (Rückgabe Konfiguration oder Platzhalter) | entfällt, siehe unten |
 
-### Callbacks migrieren
+#### Callbacks migrieren
 
-Die Callback-Parameter entfallen. Wer an dieser Stelle noch eine Funktion übergibt, erhält einen `TypeError`. Die Logik aus dem Callback läuft unverändert weiter, nur nach dem Rückgabewert.
+Die Callback-Parameter entfallen; wer noch eine Funktion übergibt, erhält einen `TypeError`. Die Logik aus dem Callback läuft nach dem Rückgabewert weiter. Nicht betroffen sind die Overlay-Funktion von `addOverlayForLayer` und `tileLoadFunction` in `initMap`.
 
-Nicht betroffen sind die Overlay-Funktion von `addOverlayForLayer` und `tileLoadFunction` in `initMap`. Beide bleiben Parameter.
-
-Synchrone Methoden: Rückgabewert verwenden.
+Synchrone Methoden (`initMap`, `addWMSLayer`, `addGeoJSON`, `addPoints`): Rückgabewert verwenden.
 
 ```js
 // 3.x
@@ -108,25 +116,6 @@ mymap.addPoints([[x, y]], iconUrl, (vectorLayer) => {
 // 4.0
 const vectorLayer = mymap.addPoints([[x, y]], iconUrl);
 vectorLayer.set('name', 'marker');
-```
-
-```js
-// 3.x
-mymap.initMap(25832, {target: 'map'}, {}, {}, () => onInit());
-
-// 4.0
-mymap.initMap(25832, {target: 'map'});
-onInit();
-```
-
-```js
-// 3.x
-mymap.addWMSLayer(url, layerName, {}, {}, (layer) => {
-    layers[layerName] = layer;
-});
-
-// 4.0
-layers[layerName] = mymap.addWMSLayer(url, layerName);
 ```
 
 Asynchrone Methoden: `await` bzw. `.then` verwenden. Aus `if (layer)` bzw. dem bisher ausbleibenden Aufruf im Fehlerfall wird `if (r.ok)`.
@@ -144,11 +133,9 @@ if (r.ok) {
 }
 ```
 
-Ein Vorteil der neuen Form: Fehler im eigenen Code laufen in die eigene Fehlerbehandlung. In 3.x lief der Callback in der Promise-Kette der Bibliothek; eine Exception darin erschien nur als Bibliotheksfehler in der Konsole.
-
 ### `getConfig()` wird zu `loadConfig()`
 
-`getConfig()` lieferte während des Ladens einen Platzhalter. Die Methode entfällt. Ersatz:
+`getConfig()` lieferte während des Ladens einen Platzhalter und entfällt. Ersatz:
 
 ```js
 const r = await mymap.loadConfig();
@@ -157,37 +144,12 @@ if (r.ok) {
 }
 ```
 
-Der neue Name ist Absicht: Würde `getConfig()` eine Promise liefern, läse bestehender Code wie `getConfig().wmts_hosts` still `undefined`. So meldet der Aufruf sofort `getConfig is not a function`.
-
 Eine manuell gesetzte Konfiguration bleibt über `initMap(…, {config})` möglich.
-
-### Die Konfiguration wird geprüft
-
-Antworten des Konfigurationsdienstes und manuell gesetzte Konfigurationen werden vor der Verwendung geprüft:
-
-- Hosts sind reine Hostnamen, optional mit Port, ohne Schema, Zugangsdaten und Pfad. Instanzen und Dienstnamen sind relative Pfade ohne `.` und `..`.
-- Dienste stehen als Objekt mit dem Namen als Schlüssel in `ags_services`, `wmts_services` und `wms_services`. Die Listenform aus den Typen von 3.x wird nicht mehr angenommen.
-- Unbekannte Felder entfallen, darunter die abgeleiteten Listen `ags_hosts`, `wmts_hosts` und `wms_hosts` aus `getConfig()`. Eine in 3.x gespeicherte Konfiguration bleibt damit verwendbar.
-- Eine ungültige Antwort des Dienstes meldet `INVALID_DATA`; es gehen dann keine Requests an die Kartendienste. Eine ungültige manuelle Konfiguration ist ein Programmierfehler: `initMap` wirft einen `TypeError`.
-- Die Konfigurations-URL im Konstruktor muss HTTPS verwenden, HTTP ist nur für `localhost` erlaubt.
-
-Im Konfigurationsabruf sendet geoline.ol.js im Parameter `url` nur noch Origin und Pfad der Seite, ohne Query und Fragment. Für Anwendungen ändert sich dadurch nichts.
-
-### GeoJSON wird geprüft
-
-`addGeoJSON` und `addGeoJSONfromURL` prüfen Struktur, Koordinaten und CRS, bevor sie einen Layer einfügen. Bei einem Fehler wird kein Layer eingefügt.
-
-- Ungültige Struktur oder Koordinaten melden `INVALID_DATA`. In 3.x warf `crs: null` einen `TypeError`; jetzt gilt wie bei fehlendem CRS EPSG:4326.
-- Eine unbekannte Projektion meldet `PROJECTION_MISMATCH`. In 3.x wurde nur geloggt und der Layer trotzdem eingefügt, meist an falscher Stelle.
-- Ohne `_style` erscheinen die Objekte im Standardstil von OpenLayers. In 3.x waren sie dann unsichtbar (leerer Style `{}`) und für Popups nicht anklickbar.
-- Mit `_zoomTo` wartet die Karte, bis sie eine Größe hat, und zoomt nur auf nicht leere Daten. `dispose()` beendet das Warten.
 
 ### Lebenszyklus: `dispose()`
 
-Eine Instanz von `StmaOpenLayers` gehört zu genau einer Karte.
+Eine Instanz von `StmaOpenLayers` gehört zu genau einer Karte. `dispose()` räumt sie ab; offene Promises liefern `ABORTED` (Details im README).
 
-- `dispose()` bricht laufende Anfragen ab, entfernt Listener, Intervalle, Overlays und Caches und löst die Karte von ihrem Element. Offene Promises liefern `{ok: false, error: {code: 'ABORTED'}}`. Mehrfacher Aufruf ist unschädlich.
-- Ergebnisse, die nach `dispose()` eintreffen, werden verworfen und nie in eine Karte eingefügt.
 - Ein zweiter Aufruf von `initMap` auf derselben Instanz wirft. Zum Neuaufbau vorher `dispose()` aufrufen:
 
 ```js
@@ -195,25 +157,11 @@ mymap.dispose();
 mymap.initMap(25832, {target: 'map'});
 ```
 
-Nach `dispose()` werfen alle Methoden außer `initMap` und `dispose`.
+- Nach `dispose()` werfen alle Methoden außer `initMap` und `dispose`.
 
-### Mehrere Karten auf einer Seite und das Popup-Element
+### Ansicht und Projektion der Karte
 
-Jede Instanz spricht nur noch ihre eigenen Elemente an. Damit funktionieren mehrere Karten auf einer Seite unabhängig voneinander.
-
-Das Popup-Element erhält immer die Klasse `geoline-ol-js-popup`, das mitgelieferte CSS nutzt diese Klasse. Die ID ist über `initMap` wählbar, Standard bleibt `geoline_ol_js_popup`:
-
-```js
-karte1.initMap(25832, {target: 'karte1'});
-karte2.initMap(25832, {target: 'karte2'}, {}, {popupId: 'popup_karte2'});
-```
-
-- Eine Karte, eigenes CSS auf `#geoline_ol_js_popup`: keine Änderung nötig.
-- Mehrere Karten: jede weitere Karte braucht eine eigene `popupId`. Ist die ID im Dokument oder von einer anderen geoline-Karte (auch außerhalb des Dokuments) schon vergeben oder kein String, wirft `initMap`. Eigenes CSS sollte die Klasse statt der ID verwenden.
-
-## Ansicht und Projektion der Karte
-
-`initMap` legt die View einmal fest; kein Layer ersetzt sie mehr. In 3.x setzte der erste gecachte ArcGIS-, WMTS- oder WMS-Layer eine neue View. Zoomstufen, Mittelpunkt und eigene `_viewParams` hingen dann davon ab, welcher Dienst zuerst antwortete. `getMap().getView()` liefert jetzt bis `dispose()` dasselbe Objekt.
+`initMap` legt die View einmal fest; in 3.x ersetzte sie der erste gecachte Layer. `getMap().getView()` liefert jetzt bis `dispose()` dasselbe Objekt.
 
 - **Zoomstufen in EPSG:25832** folgen der Kachelmatrix `Stuttgart_UTM_CRS_oL` der Stadtmessungsamt-Dienste, Standard ist Zoom 2:
 
@@ -221,110 +169,89 @@ karte2.initMap(25832, {target: 'karte2'}, {}, {popupId: 'popup_karte2'});
   |---|---|---|---|---|---|---|---|---|---|---|
   | m/Pixel | 112 | 56 | 28 | 14 | 7 | 2,8 | 1,4 | 0,7 | 0,28 | 0,14 |
 
-  Mit einem gecachten ArcGIS-Dienst als erstem Layer ändert sich der Ausschnitt in 3.x-Anwendungen kaum (vorher 105,83 … 0,13 m/Pixel). Wer nur WMS oder GeoJSON nutzte, bekam in 3.x die Standardstufen von OpenLayers; dort `zoom` neu wählen, z. B. 16 (2,4 m/Pixel) → 5. Eigene `resolutions` in `_viewParams` sind weiter möglich.
+  Mit einem gecachten ArcGIS-Dienst als erstem Layer ändert sich kaum etwas. Wer nur WMS oder GeoJSON nutzte, bekam in 3.x die Standardstufen von OpenLayers; dort `zoom` neu wählen, z. B. 16 (2,4 m/Pixel) → 5. Eigene `resolutions` in `_viewParams` sind weiter möglich.
 - **EPSG:3857** behält die Standardstufen von OpenLayers und ist ohne eigene Angaben auf Stuttgart zentriert (Zoom 12).
-- **Nur noch EPSG:25832 und EPSG:3857:** Die Registrierung von EPSG:31467 (Gauß-Krüger) entfällt. Für andere Codes wirft `initMap` einen `TypeError`.
-- **Dienste in anderer Projektion:** Gecachte ArcGIS-Dienste werden von OpenLayers in die Projektion der Karte umgerechnet; die Karte behält ihre Projektion. In 3.x wurde `projection` mit der WKID des Dienstes überschrieben. Eine unbekannte WKID meldet `PROJECTION_MISMATCH`, fehlende Kachelinformationen melden `INVALID_DATA`, jeweils ohne Layer. WMTS-Layer in anderer Projektion melden `PROJECTION_MISMATCH`.
-- **Kachelgröße:** Nicht quadratische ArcGIS-Kacheln werden als Breite × Höhe gelesen; in 3.x waren Breite und Höhe vertauscht.
+- **Nur noch EPSG:25832 und EPSG:3857:** EPSG:31467 (Gauß-Krüger) entfällt. Für andere Codes wirft `initMap` einen `TypeError`.
+- **Dienste in anderer Projektion:** Gecachte ArcGIS-Dienste werden in die Projektion der Karte umgerechnet; in 3.x übernahm die Karte die Projektion des Dienstes. Eine unbekannte WKID meldet `PROJECTION_MISMATCH`, fehlende Kachelinformationen `INVALID_DATA`. WMTS-Layer in anderer Projektion melden `PROJECTION_MISMATCH`.
 - **`controls: null`** schaltet alle Bedienelemente ab, die Quellenangabe bleibt.
 
-## Quellenangaben von ArcGIS-Diensten nur noch als Text
+### Styles, Popup und Bedienung
 
-Den `copyrightText` aus der Dienstbeschreibung von ArcGIS-Diensten zeigt geoline.ol.js als reinen Text an, auch bei eigenen Diensten über `addEsriLayer`. In 3.x wertete OpenLayers ihn als HTML aus.
+- **CSS nur noch in der Karte:** `geoline.ol.css` setzt keine Schrift mehr auf `body` und färbt `.ol-control`-Schaltflächen nur noch in geoline-Karten. Wer sich auf `sans-serif` für die ganze Seite verlassen hat, setzt sie selbst. Anpassung über CSS-Variablen: README, „Darstellung und Bedienung“.
+- **Popup:** Das Element ist anfangs ausgeblendet und enthält zusätzlich `button.close`; Inhalt weiter in `div.content`. Ein leerer Rückgabewert der Overlay-Funktion lässt das Popup geschlossen; DOM-Knoten werden eingesetzt statt als `[object …]` angezeigt.
+- **Tastatur:** Das Kartenelement erhält `tabindex="0"`, wenn es keinen hat und ein Overlay registriert ist; die Tab-Reihenfolge der Seite ändert sich dadurch.
+- **`pixelRatio`** in `_mapParams` wird jetzt berücksichtigt; in 3.x wurde die Angabe ignoriert.
 
-- **Betroffen:** Dienste, deren `copyrightText` HTML enthält. Links darin sind nicht mehr anklickbar, Markup erscheint als Text. HTML-Entities wie `&copy;` erscheinen wörtlich; im Dienst das Zeichen `©` verwenden.
-- **Nicht betroffen:** Die Dienste des Stadtmessungsamtes; ihr Copyright-Text enthält kein HTML.
-- **Eigene Quellenangabe mit Link:** nach dem Hinzufügen mit OpenLayers setzen, z. B. `result.value.getSource().setAttributions('<a href="…">© …</a>')`. OpenLayers übernimmt diesen Wert als HTML.
+## Nur betroffen, wenn …
 
-## Styles, Popup und Bedienung
+### Die Konfiguration wird geprüft
 
-- **CSS nur noch in der Karte:** `geoline.ol.css` setzt keine Schrift mehr auf `body` und färbt `.ol-control`-Schaltflächen nur noch in geoline-Karten (Klasse `geoline-ol-js-map` am Viewport). Wer sich auf die Schrift `sans-serif` der ganzen Seite verlassen hat, setzt sie selbst. Farben und Schriftgröße sind über CSS-Variablen anpassbar (README, „Darstellung und Bedienung“).
-- **Kontrast:** Schaltflächen haben dunkle statt grauer Schrift auf Gelb; die Quellenangabe ist 0,75 rem (12 px) statt 10 px groß.
-- **Popup:** Das Element ist anfangs ausgeblendet und enthält zusätzlich `button.close`; Inhalt weiter in `div.content`. Ein leerer Rückgabewert der Overlay-Funktion lässt das Popup geschlossen; in 3.x erschien ein leeres Popup oder der Text `undefined`. DOM-Knoten werden eingesetzt statt als `[object …]` angezeigt.
-- **Tastatur:** Das Kartenelement erhält `tabindex="0"`, wenn es keinen hat und ein Overlay registriert ist. Enter öffnet das Popup für das Objekt in der Kartenmitte, Escape schließt es.
-- **Kontextmenü:** weiter standardmäßig unterbunden, mit `initMap(…, {contextMenu: true})` abschaltbar.
-- **`pixelRatio`** bleibt 1, ist aber über `_mapParams.pixelRatio` überschreibbar; in 3.x wurde die Angabe ignoriert.
+**Betroffen:** manuelle Konfiguration über `initMap(…, {config})`, z. B. eine in 3.x gespeicherte, oder eine eigene Konfigurations-URL.
 
-## TypeScript-Deklarationen
+Antworten des Konfigurationsdienstes und manuell gesetzte Konfigurationen werden vor der Verwendung geprüft:
 
-Die Deklarationen entstehen aus TypeScript-Quellcode und kompilieren ohne `skipLibCheck`. In 3.x scheiterten sie daran (`int`, `integer`).
+- Hosts sind reine Hostnamen, optional mit Port. Instanzen und Dienstnamen sind relative Pfade ohne `.` und `..`.
+- Dienste stehen als Objekt mit dem Namen als Schlüssel in `ags_services`, `wmts_services` und `wms_services`. Die Listenform aus den Typen von 3.x wird nicht mehr angenommen.
+- Unbekannte Felder entfallen, darunter `ags_hosts`, `wmts_hosts` und `wms_hosts` aus `getConfig()`. Eine in 3.x gespeicherte Konfiguration bleibt damit verwendbar.
+- Eine ungültige Antwort des Dienstes meldet `INVALID_DATA`. Eine ungültige manuelle Konfiguration lässt `initMap` einen `TypeError` werfen.
+- Die Konfigurations-URL im Konstruktor muss HTTPS verwenden, HTTP ist nur für `localhost` erlaubt.
 
-- **Genauere Typen:** `getMap()` liefert `Map` statt `object`, asynchrone Methoden `Promise<Result<…>>`, die Overlay-Funktion `(feature) => string | Node | null | undefined`. Code, der bisher mit `any` oder Casts gearbeitet hat, kann diese entfernen; Zugriffe auf `result.value` brauchen vorher die Prüfung von `ok`.
+### GeoJSON wird geprüft
+
+**Betroffen:** Anwendungen, die GeoJSON laden.
+
+`addGeoJSON` und `addGeoJSONfromURL` prüfen Struktur, Koordinaten und CRS; bei einem Fehler wird kein Layer eingefügt.
+
+- Ungültige Struktur oder Koordinaten melden `INVALID_DATA`.
+- Eine unbekannte Projektion meldet `PROJECTION_MISMATCH`. In 3.x wurde der Layer trotzdem eingefügt, meist an falscher Stelle.
+- Ohne `_style` erscheinen die Objekte im Standardstil von OpenLayers. In 3.x waren sie unsichtbar und für Popups nicht anklickbar.
+
+### Mehrere Karten auf einer Seite und das Popup-Element
+
+**Betroffen:** mehrere Karten auf einer Seite oder eigenes CSS für das Popup.
+
+Jede Instanz spricht nur noch ihre eigenen Elemente an. Das Popup-Element erhält immer die Klasse `geoline-ol-js-popup`; die ID ist über `initMap` wählbar, Standard bleibt `geoline_ol_js_popup`:
+
+```js
+karte1.initMap(25832, {target: 'karte1'});
+karte2.initMap(25832, {target: 'karte2'}, {}, {popupId: 'popup_karte2'});
+```
+
+- Eine Karte, eigenes CSS auf `#geoline_ol_js_popup`: keine Änderung nötig.
+- Mehrere Karten: jede weitere Karte braucht eine eigene `popupId`, sonst wirft `initMap`. Eigenes CSS sollte die Klasse statt der ID verwenden.
+
+### Quellenangaben von ArcGIS-Diensten nur noch als Text
+
+Den `copyrightText` von ArcGIS-Diensten zeigt geoline.ol.js als reinen Text an, auch bei eigenen Diensten über `addEsriLayer`. In 3.x wertete OpenLayers ihn als HTML aus.
+
+- **Betroffen:** Dienste, deren `copyrightText` HTML enthält. Links darin sind nicht mehr anklickbar, Markup und Entities wie `&copy;` erscheinen wörtlich; im Dienst das Zeichen `©` verwenden. Die Dienste des Stadtmessungsamtes sind nicht betroffen.
+- **Eigene Quellenangabe mit Link:** nach dem Hinzufügen setzen, z. B. `result.value.getSource().setAttributions('<a href="…">© …</a>')`. OpenLayers übernimmt diesen Wert als HTML.
+
+### TypeScript-Deklarationen
+
+**Betroffen:** TypeScript-Projekte.
+
+Die Deklarationen kompilieren jetzt ohne `skipLibCheck`.
+
+- **Genauere Typen:** `getMap()` liefert `Map` statt `object`, asynchrone Methoden `Promise<Result<…>>`, die Overlay-Funktion `(feature) => string | Node | null | undefined`. Zugriffe auf `result.value` brauchen vorher die Prüfung von `ok`.
 - **Interne Member** sind `private` und erscheinen ohne Typ; `Session` wird nicht mehr exportiert. Neu exportiert ist `GeolineCustomParams` (viertes Argument von `initMap`).
-- **Map-, View-, Layer- und Source-Parameter** bleiben `object`, damit zusätzliche Schlüssel wie `TILED` weiter erlaubt sind.
 - **Projekt-Einstellungen:** `moduleResolution` `bundler` oder `nodenext`. CSS-Importe brauchen eine Deklaration, z. B. `declare module '*.css';` oder `vite/client`. Wer selbst `ol/format/GeoJSON` importiert, installiert `@types/geojson`.
 
-## Eigene Dienste brauchen CORS
+### Eigene Dienste brauchen CORS
 
-Dienstinformationen von ArcGIS-Servern lädt geoline.ol.js nicht mehr per JSONP, sondern per `fetch`. JSONP hat die Antwort als Script in der Anwendung ausgeführt. Einen Legacy-Modus gibt es nicht.
+Dienstinformationen von ArcGIS-Servern lädt geoline.ol.js per `fetch` statt per JSONP. Einen Legacy-Modus gibt es nicht.
 
 - **Betroffen:** eigene ArcGIS-Dienste über `addEsriLayer` und eine eigene Konfigurations-URL im Konstruktor (`new StmaOpenLayers(configUrl)`). Die Dienste des Stadtmessungsamtes liefern die nötigen Header bereits.
 - **Voraussetzung:** Der Server antwortet mit `Access-Control-Allow-Origin` für den Origin der Anwendung (oder `*`). Cookies und HTTP-Authentifizierung werden nicht mitgesendet.
-- **Ohne CORS:** Das Result meldet `SERVICE_UNAVAILABLE`, die Browser-Konsole nennt die fehlenden Header. Für WMTS-Capabilities (`addWMTSLayer`) galt das schon in 3.x.
+- **Ohne CORS:** Das Result meldet `SERVICE_UNAVAILABLE`, die Browser-Konsole nennt die fehlenden Header.
 
-## Gebaute Dateien nur noch über npm
+### Gebaute Dateien nur noch über npm
 
 `dist/` liegt nicht mehr im Git-Repository. Die Pfade im npm-Paket bleiben gleich.
 
 - **Betroffen:** Installation direkt aus GitHub (`github:stadtmessungsamt-stuttgart/geoline.ol.js`) sowie Einbindung über `raw.githubusercontent.com` oder jsDelivr `gh/…`.
 - **Umstellen auf:** das npm-Paket bzw. jsDelivr `npm/…` oder unpkg, jeweils mit fester Hauptversion.
 
-## `addStmaEsriFeatureLayer` entfällt
+### `addStmaEsriFeatureLayer` entfällt
 
-Die Methode `addStmaEsriFeatureLayer(mapservice, layerId, styleFunction, callback)` ist entfernt. Sie war in 3.x nicht lauffähig: Der Ladevorgang brach mit `self._fetchConfig is not a function` ab, und im ESM-Build fehlte `require('jsonp')`.
-
-**Alternative:** Features eines ArcGIS-Dienstes direkt mit OpenLayers laden. `getMap()` liefert die OpenLayers-Karte, zu der der Layer hinzugefügt wird. Der Dienst muss die Operation `query` unterstützen und CORS erlauben.
-
-```js
-import VectorLayer from 'ol/layer/Vector.js';
-import VectorSource from 'ol/source/Vector.js';
-import EsriJSON from 'ol/format/EsriJSON.js';
-import {tile as tileStrategy} from 'ol/loadingstrategy.js';
-import {createXYZ} from 'ol/tilegrid.js';
-
-// URL des Layers: .../rest/services/ORDNER/DIENST/MapServer/LAYERID
-const layerUrl = 'https://SERVER/arcgis/rest/services/ORDNER/DIENST/MapServer/LAYERID';
-const format = new EsriJSON();
-
-const source = new VectorSource({
-    strategy: tileStrategy(createXYZ({tileSize: 512})),
-    loader(extent, resolution, projection, success, failure) {
-        const wkid = projection.getCode().split(':')[1];
-        const params = new URLSearchParams({
-            f: 'json',
-            returnGeometry: 'true',
-            spatialRel: 'esriSpatialRelIntersects',
-            geometry: JSON.stringify({
-                xmin: extent[0], ymin: extent[1], xmax: extent[2], ymax: extent[3],
-                spatialReference: {wkid},
-            }),
-            geometryType: 'esriGeometryEnvelope',
-            inSR: wkid,
-            outFields: '*',
-            outSR: wkid,
-        });
-        fetch(`${layerUrl}/query?${params}`)
-            .then((response) => {
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                return response.json();
-            })
-            .then((json) => {
-                if (json.error) throw new Error(json.error.message);
-                const features = format.readFeatures(json, {featureProjection: projection});
-                source.addFeatures(features);
-                success(features);
-            })
-            .catch(() => {
-                // Bereich erneut ladbar machen
-                source.removeLoadedExtent(extent);
-                failure();
-            });
-    },
-});
-
-mymap.getMap().addLayer(new VectorLayer({source, zIndex: 60, style: myStyleFunction}));
-```
-
-Hinweise:
-- `zIndex: 60` entspricht dem bisherigen Standard der Methode.
-- Bei großen Layern begrenzt der Dienst die Anzahl der Features pro Abfrage (`exceededTransferLimit`). Dann `outFields` auf die benötigten Felder beschränken oder kleinere Kacheln wählen.
+Die Methode ist entfernt; sie war in 3.x nicht lauffähig. Features eines ArcGIS-Dienstes lassen sich direkt mit OpenLayers laden (`ol/format/EsriJSON`, siehe [OpenLayers-Beispiel „ArcGIS REST Feature Service“](https://openlayers.org/en/latest/examples/vector-esri.html)) und über `getMap().addLayer(…)` einfügen. Der bisherige Standard-zIndex war 60.
