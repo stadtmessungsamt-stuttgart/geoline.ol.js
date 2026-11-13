@@ -132,11 +132,19 @@ Empfohlener Ablauf:
    - Den Status im Tab "Actions" verfolgen. Bei Erfolg ist die Version auf npm verfügbar.
 
 Hinweise:
-- Veröffentlicht wird über npm Trusted Publishing (OIDC), ohne gespeicherten Token. Voraussetzung im Repository und bei npm: Trusted Publisher für `main.yml` mit Umgebung `npm`, Umgebung `npm` mit Freigabe, Pages-Quelle „GitHub Actions“.
+- Veröffentlicht wird über npm Trusted Publishing (OIDC), ohne gespeicherten Token. Voraussetzung im Repository und bei npm: Trusted Publisher für `main.yml` mit Umgebung `npm`, Umgebung `npm` mit Freigabe, Pages-Quelle „GitHub Actions“. Die Umgebung `github-pages` muss Tags zulassen (Settings → Environments → `github-pages` → Deployment branches and tags: Tag-Regel `[0-9]*.[0-9]*.[0-9]*`), da der Release-Lauf auf dem Tag läuft und die bisherigen Regeln nur Branches erlauben.
 - Die CI läuft für Pull Requests, Pushes auf `master`, wöchentlich (montags) und bei Releases. Ein Branch ohne Pull Request wird nicht getestet. Neuere Commits im selben Pull Request brechen ältere Läufe ab. Der Audit ist ein eigener Job und blockiert nur die Veröffentlichung; die E2E-Tests gegen die Dienste von stuttgart.de laufen nur mit Node 24 und wiederholen einen fehlgeschlagenen Test einmal. Firefox: API-Tests in jedem Lauf, E2E-Tests nicht für Pull Requests (Last auf den Live-Diensten). Der Verbrauchertest prüft das TS-Beispiel auch mit TypeScript 5.7 (Untergrenze).
 - Die Actions sind auf Commit-SHAs gepinnt; Dependabot (`.github/dependabot.yml`) schlägt Aktualisierungen wöchentlich als Pull Request vor.
 - Jobs ohne Push-Bedarf checken ohne gespeicherte Zugangsdaten aus (`persist-credentials: false`); Schreibrechte fordert nur der jeweilige Job an.
 - Sicherheitscheck optional: `npm run audit` (nur Prod-Abhängigkeiten, siehe Scripts in `package.json`).
+
+Einmalige Umstellung beim ersten Release mit diesem Workflow (4.0.0):
+1. Vorab (bricht den bisherigen Ablauf nicht, braucht Admin-Rechte im Repository bzw. Zugriff auf das npm-Paket):
+   - Tag-Regel `[0-9]*.[0-9]*.[0-9]*` in der Umgebung `github-pages` ergänzen; die Regeln für `gh-pages` und `master` bleiben vorerst.
+   - Umgebung `npm` anlegen: Required reviewer, Deployment branches and tags nur mit der Tag-Regel `[0-9]*.[0-9]*.[0-9]*`.
+   - Auf npmjs.com den Trusted Publisher eintragen (Repository, Workflow `main.yml`, Umgebung `npm`). Veröffentlichung per Token noch nicht verbieten.
+2. Erst nach dem Merge nach `master`, unmittelbar vor „Publish release“: Pages-Quelle auf „GitHub Actions“ umstellen (Settings → Pages → Source). Vorher würde ein Release aus dem alten Workflow nicht mehr ausgeliefert, nachher würde der Branch `gh-pages` nicht mehr ausgeliefert.
+3. Nach erfolgreichem Release prüfen, dass https://stadtmessungsamt-stuttgart.github.io/geoline.ol.js/ die neue Version zeigt, dann aufräumen: Regel `gh-pages` in der Umgebung `github-pages` und den Branch `gh-pages` löschen, Secret `NPM_TOKEN` entfernen, auf npmjs.com die Veröffentlichung per Token verbieten.
 
 ## Review-Regeln
 - Jede Änderung an `master` läuft über einen Pull Request mit grüner CI.
