@@ -112,6 +112,8 @@ jobs:
         with:
           name: package
           path: .pack/*.tgz
+          # .pack is a hidden directory, upload-artifact skips it otherwise
+          include-hidden-files: true
           if-no-files-found: error
 
   publish:
