@@ -6,36 +6,43 @@
   "type": "module",
   "files": [
     "dist",
-    "src",
     "LICENSE",
     "README.md"
   ],
   "main": "dist/geoline.ol.js",
   "types": "dist/geoline.ol.d.ts",
   "style": "dist/geoline.ol.css",
-  "dependencies": {
-    "core-js": "^3.45.1",
-    "jsonp": "^0.2.1",
-    "ol": "^10.6.1",
-    "proj4": "^2.7.0"
+  "exports": {
+    ".": {
+      "types": "./dist/geoline.ol.d.ts",
+      "default": "./dist/geoline.ol.js"
+    },
+    "./geoline.ol.css": "./dist/geoline.ol.css",
+    "./dist/geoline.ol.js": {
+      "types": "./dist/geoline.ol.d.ts",
+      "default": "./dist/geoline.ol.js"
+    },
+    "./dist/geoline.ol.css": "./dist/geoline.ol.css",
+    "./package.json": "./package.json"
   },
   "devDependencies": {
-    "@stadtmessungsamt-stuttgart/geoline.ol.js": "file:./",
-    "concurrently": "^9.1.2",
-    "copy-webpack-plugin": "^13.0.1",
+    "concurrently": "^10.0.7",
+    "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.2",
-    "css-minimizer-webpack-plugin": "^7.0.2",
-    "cypress": "^15.2.0",
-    "gh-pages": "^6.3.0",
+    "css-minimizer-webpack-plugin": "^8.0.0",
+    "cypress": "^16.3.0",
+    "esbuild-loader": "^4.5.0",
+    "eslint-plugin-jsdoc": "^65.4.5",
     "mini-css-extract-plugin": "^2.9.4",
-    "replace": "^1.2.2",
+    "ol": "^10.11.0",
+    "oxlint": "^1.93.0",
+    "proj4": "^2.22.0",
     "style-loader": "^4.0.0",
-    "ts-loader": "^9.5.1",
-    "typescript": "^5.9.2",
+    "typescript": "^7.0.2",
     "wait-on": "^9.0.1",
     "webpack": "^5.94.0",
-    "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.0.4"
+    "webpack-cli": "^7.3.1",
+    "webpack-dev-server": "^6.1.0"
   },
   "repository": {
     "type": "git",
@@ -43,14 +50,24 @@
   },
   "license": "CC-BY-NC-SA-4.0",
   "scripts": {
-    "audit": "npm audit --only=prod",
-    "build-dist": "webpack --config webpack.dist.config.cjs --mode production",
+    "audit": "npm audit --omit=dev",
+    "lint": "oxlint src",
+    "build-dist": "webpack --config webpack.dist.config.cjs --mode production && tsc -p tsconfig.json && node scripts/third-party-licenses.mjs",
     "build-dev": "webpack --config webpack.dist.config.cjs --watch",
+    "pack-dist": "npm run build-dist && node scripts/check-bundle.mjs && rm -rf .pack && mkdir .pack && npm pack --pack-destination .pack",
     "build-examples": "npm run build-dist && webpack --config webpack.examples.config.cjs",
-    "serve-examples": "wait-on demo && webpack serve --config webpack.examples.config.cjs --port 8080 --open",
-    "deploy-gh-pages": "npm run build-examples && gh-pages --dist demo",
-    "cypress-open": "concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress open\"",
-    "cypress-run": "concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress run --browser chrome\"",
-    "start-dev": "concurrently \"npm run build-dev\" \"webpack --config webpack.examples.config.cjs --watch\" \"npm run serve-examples\""
+    "serve-examples": "npm run build-dist && webpack serve --config webpack.examples.config.cjs --port 8080 --open",
+    "start-dev": "concurrently \"npm run build-dev\" \"webpack --config webpack.examples.config.cjs --watch\" \"npm run serve-examples\"",
+    "test-consumer": "node scripts/check-consumer.mjs && cypress run --config-file cypress.consumer.config.js --browser chrome",
+    "test-api": "cypress run --config-file cypress.api.config.js --browser chrome",
+    "test-e2e": "concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress run --browser chrome\"",
+    "test-api-firefox": "cypress run --config-file cypress.api.config.js --browser firefox",
+    "test-e2e-firefox": "concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress run --browser firefox\"",
+    "cypress-api": "npm run build-dist && npm run test-api",
+    "cypress-run": "npm run build-dist && npm run test-e2e",
+    "cypress-open": "npm run build-dist && concurrently -k -s first \"webpack serve --config webpack.examples.config.cjs --port 8080\" \"wait-on http://localhost:8080 && cypress open\""
+  },
+  "peerDependencies": {
+    "ol": "^10.11.0"
   }
 }

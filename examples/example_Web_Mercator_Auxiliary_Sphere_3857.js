@@ -1,5 +1,6 @@
-import StmaOpenLayers from "@stadtmessungsamt-stuttgart/geoline.ol.js/dist/geoline.ol.js";
-import "@stadtmessungsamt-stuttgart/geoline.ol.js/src/geoline.ol.css";
+import StmaOpenLayers from "@stadtmessungsamt-stuttgart/geoline.ol.js";
+import "ol/ol.css";
+import "@stadtmessungsamt-stuttgart/geoline.ol.js/geoline.ol.css";
 
 import MousePosition from 'ol/control/MousePosition.js';
 import Zoom from 'ol/control/Zoom.js';
@@ -11,7 +12,7 @@ mymap.initMap(3857, {}, {
 });
 
 mymap.addStmaBaseLayer("Basemap");
-mymap.addEsriLayer("https://server.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer");
+mymap.addStmaEsriLayer("1_Base/Stadtkarte_Internet_c_EPSG3857");
 
 const mousePosition = new MousePosition({
 	coordinateFormat: function(coordinate) {

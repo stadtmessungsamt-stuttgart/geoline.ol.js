@@ -3,14 +3,14 @@
 Dieses Dokument beschreibt, wie eine lokale Entwicklungsumgebung für geoline.ol.js gestartet, Beispiele ausgeführt und Tests gestartet werden können.
 
 ## Voraussetzungen
-- Node.js 18 oder höher (empfohlen: 22 LTS)
+- Node.js 24 LTS mit npm 11.5.1 oder höher (Basis, auch für die Veröffentlichung). Die CI prüft zusätzlich Node 22 LTS.
 - Optional: nvm (Node Version Manager) für die Verwaltung mehrerer Node-Versionen
 - Optional: Docker (falls ohne lokale Node-Installation gearbeitet werden soll)
 
-Empfohlene Node-Version setzen (mit nvm):
+Die Datei `.nvmrc` legt die Version fest (mit nvm):
 ```
-nvm install 22
-nvm use 22
+nvm install
+nvm use
 ```
 
 ## Repository klonen
@@ -21,18 +21,17 @@ cd geoline.ol.js
 
 ## Abhängigkeiten installieren
 ```
-npm install
+npm ci
 ```
 
-Hinweis: Für reproduzierbare Builds kann auch `npm ci` verwendet werden (erfordert vorhandene package-lock.json).
+`npm ci` installiert genau die Versionen aus `package-lock.json`. `npm install` nur verwenden, um Abhängigkeiten bewusst zu ändern.
+
+`dist/` liegt nicht im Repository. Die Scripts, die es brauchen, bauen es vorher selbst.
 
 ## Beispiele lokal bauen und serven (Schnellstart)
 Die Beispiele befinden sich unter `examples/` und werden in den Ordner `demo/` gebündelt. Ein Webpack Dev Server stellt diese anschließend auf Port 8080 bereit.
 
-Bei der Entwicklung in der `geoline.ol.js` muss darauf geachtet werden, 
-dass in den Beispielen das Modul reguläre über `import StmaOpenLayers from "@stadtmessungsamt-stuttgart/geoline.ol.js/dist/geoline.ol.js";` eingebunden wird.
-Das bedeutet, dass Änderungen an der Datei erst durch den "" Prozess laufen müssen.
-Je nach Leistung des Entwicklungssystems kann es etwas dauern, bis die Änderungen "publiziert" wurden und sich die Seite im Browser aktualisiert.
+Die Beispiele importieren das Paket wie ein Verbraucher (`@stadtmessungsamt-stuttgart/geoline.ol.js`). Der Name zeigt über die `exports`-Map des eigenen Pakets auf den gebauten Stand im Repository. Änderungen in `src/` erscheinen deshalb erst, nachdem `dist/` neu gebaut ist; `npm run start-dev` erledigt das im Watch-Modus.
 
 - Starten:
 ```
@@ -43,9 +42,12 @@ npm run start-dev
   - oder die einzelnen Beispielseiten in `demo/` (z. B. `example_WMS_25832.html`).
 
 Relevante Scripts (siehe package.json):
-- `npm run build-examples` – bundelt alle Beispiel-JS/TS-Dateien nach `demo/`
-- `npm run serve-examples` – startet den Webpack Dev Server auf Port 8080
-- `npm run examples` – startet den Dev Server (baut dabei automatisch)
+- `npm run build-dist` – baut `dist/` (webpack, danach Typprüfung und `.d.ts` mit tsc)
+- `npm run pack-dist` – baut `dist/` und packt das npm-Paket nach `.pack/`
+- `npm run test-consumer` – installiert das Paket aus `.pack/` in leere Projekte: prüft das TS-Beispiel mit `moduleResolution` `bundler` und `nodenext`, baut die Verbraucherprojekte aus `consumers/` (Webpack 5, Vite) und prüft sie im Browser
+- `npm run build-examples` – baut `dist/` und bündelt alle Beispiele nach `demo/`
+- `npm run serve-examples` – baut `dist/` und startet den Webpack Dev Server auf Port 8080
+- `npm run cypress-api` / `npm run cypress-run` – bauen `dist/` und starten die API- bzw. E2E-Tests; `test-api` und `test-e2e` testen ohne erneuten Build
 
 ## Entwicklung ohne lokale Node-Installation (Docker)
 Folgendes Kommando erzeugt einen Docker-Container und startet die Demo unter Port 8080:
@@ -55,12 +57,12 @@ docker run -it --rm --name geoline-ol-js \
    -v $(pwd):/app \
    -e NODE_ENV=development \
    -p 8080:8080 \
-   node:22 \
+   node:24 \
    bash -c "npm install && npm run start-dev"
 ```
 Voraussetzungen:
 - Docker installiert und lauffähig
-- Der aktuelle Projektordner wird als Volume eingebunden; Änderungen an den Beispielen erfordern ggf. ein erneutes `npm run examples` im Container-Lauf (das Script erledigt das automatisch pro Start).
+- Der aktuelle Projektordner wird als Volume eingebunden; `npm run start-dev` baut `dist/` und die Beispiele bei Änderungen neu.
 
 ## Cypress-Tests ausführen
 Die Cypress-Tests erwarten, dass die Demo auf Port 8080 läuft und bauen/serven diese automatisch in einem separaten Prozess.
@@ -74,13 +76,10 @@ npm run cypress-open
 npm run cypress-run
 ```
 
-Tipp (mit nvm und Node 22):
+Tipp (mit nvm, Version aus `.nvmrc`):
 ```
-# Cypress im interaktiven Modus mit Node 22 starten
-nvm exec 22 npm run cypress-open
-
-# Headless-Run mit Node 22
-nvm exec 22 npm run cypress-run
+nvm exec npm run cypress-open
+nvm exec npm run cypress-run
 ```
 
 ## Ports & Pfade
@@ -92,11 +91,12 @@ Troubleshooting:
 - Leere Beispielseite/nicht geladenes JS: Der Dev Server baut die Beispiele automatisch. Prüfen Sie die Terminalausgabe des Dev Servers auf Fehler.
 
 ## Troubleshooting (weiteres)
-- Kaputte Abhängigkeiten: `rm -rf node_modules package-lock.json && npm install` ausführen.
+- Kaputte Abhängigkeiten: `rm -rf node_modules && npm ci` ausführen. `package-lock.json` nicht löschen, sonst entstehen ungeprüfte Versionsstände.
 
 ## Nützliche Ordner
 - `src/` – Bibliotheksquellcode
-- `dist/` – gebaute Bibliotheksartefakte (JS, CSS, Typdefinitionen)
+- `dist/` – gebaute Bibliotheksartefakte (JS, CSS, Typdefinitionen); nicht im Repository, nur im npm-Paket
+- `.pack/` – gepacktes npm-Paket aus `npm run pack-dist`
 - `examples/` – Beispiel-HTML/JS/TS-Dateien
 - `demo/` – generiertes Ausgabeverzeichnis der Beispiele
 - `cypress/` – End-to-End-Tests
@@ -107,14 +107,14 @@ Dieser Abschnitt beschreibt, wie ein neues Release der Bibliothek erstellt und a
 Empfohlener Ablauf:
 1. Lokal testen und bauen
    - Sicherstellen, dass alle Änderungen committet sind und die Beispiele/Tests lokal funktionieren:
-     - `npm install`
+     - `npm ci`
      - `npm run serve-examples` (optional zur Sichtprüfung)
-     - `npm run cypress-run` (führt E2E-Tests headless aus)
+     - `npm run cypress-api` und `npm run cypress-run`
+     - Safari (manuell, nicht automatisiert): `npm run serve-examples`, alle Beispielseiten öffnen; Karte, Popup per Klick und per Tastatur (Enter/Escape) und Quellenangabe prüfen
 2. Version anheben
-   - Version in `package.json` anheben
-   - `npm run build-dist` ausführen
+   - Version in `package.json` anheben (`npm version X.Y.Z --no-git-tag-version`)
    - Änderungen commiten
-   - Tag erstellen (Als Tag-Namen das Schema `X.Y.Z` passend zur `package.json` verwenden.
+   - Tag erstellen: Schema `X.Y.Z` ohne Präfix, genau die Version aus `package.json` (der Workflow bricht sonst vor der Veröffentlichung ab).
 3. Änderungen pushen
    - `git push`
    - `git push --tags`
@@ -124,12 +124,30 @@ Empfohlener Ablauf:
    - Optional: Release Notes hinzufügen (Kurzbeschreibung der Änderungen) und auf "Publish release" klicken.
 5. Automatischen Publish abwarten
    - Der Workflow `.github/workflows/main.yml` startet bei veröffentlichtem Release:
-     - Führt Cypress-Tests aus
-     - Baut das Paket (`npm run build-dist`)
-     - Veröffentlicht auf npm (`npm publish --access public`)
+     - Baut und packt das Paket einmal (`npm run pack-dist`)
+     - Prüft genau dieses Paket (Verbrauchertest, API- und E2E-Tests)
+     - Prüft, dass Tag und Paketversion übereinstimmen
+     - Wartet auf die Freigabe in der Umgebung `npm` und veröffentlicht dieses Paket mit Provenance auf npm
+     - Baut die Beispiele und veröffentlicht sie auf GitHub Pages
    - Den Status im Tab "Actions" verfolgen. Bei Erfolg ist die Version auf npm verfügbar.
 
 Hinweise:
-- Der Publish-Job benötigt das GitHub-Secret `NPM_TOKEN`. Dieses sollte für das Repo bereits konfiguriert sein.
-- GitHub-Tag und Version in `package.json` müssen übereinstimmen.
+- Veröffentlicht wird über npm Trusted Publishing (OIDC), ohne gespeicherten Token. Voraussetzung im Repository und bei npm: Trusted Publisher für `main.yml` mit Umgebung `npm`, Umgebung `npm` mit Freigabe, Pages-Quelle „GitHub Actions“. Die Umgebung `github-pages` muss Tags zulassen (Settings → Environments → `github-pages` → Deployment branches and tags: Tag-Regel `[0-9]*.[0-9]*.[0-9]*`), da der Release-Lauf auf dem Tag läuft und die bisherigen Regeln nur Branches erlauben.
+- Die CI läuft für Pull Requests, Pushes auf `master`, wöchentlich (montags) und bei Releases. Ein Branch ohne Pull Request wird nicht getestet. Neuere Commits im selben Pull Request brechen ältere Läufe ab. Der Audit ist ein eigener Job und blockiert nur die Veröffentlichung; die E2E-Tests gegen die Dienste von stuttgart.de laufen nur mit Node 24 und wiederholen einen fehlgeschlagenen Test einmal. Firefox: API-Tests in jedem Lauf, E2E-Tests nicht für Pull Requests (Last auf den Live-Diensten). Der Verbrauchertest prüft das TS-Beispiel auch mit TypeScript 5.7 (Untergrenze).
+- Die Actions sind auf Commit-SHAs gepinnt; Dependabot (`.github/dependabot.yml`) schlägt Aktualisierungen wöchentlich als Pull Request vor.
+- Jobs ohne Push-Bedarf checken ohne gespeicherte Zugangsdaten aus (`persist-credentials: false`); Schreibrechte fordert nur der jeweilige Job an.
 - Sicherheitscheck optional: `npm run audit` (nur Prod-Abhängigkeiten, siehe Scripts in `package.json`).
+
+Einmalige Umstellung beim ersten Release mit diesem Workflow (4.0.0):
+1. Vorab (bricht den bisherigen Ablauf nicht, braucht Admin-Rechte im Repository bzw. Zugriff auf das npm-Paket):
+   - Tag-Regel `[0-9]*.[0-9]*.[0-9]*` in der Umgebung `github-pages` ergänzen; die Regeln für `gh-pages` und `master` bleiben vorerst.
+   - Umgebung `npm` anlegen: Required reviewer, Deployment branches and tags nur mit der Tag-Regel `[0-9]*.[0-9]*.[0-9]*`.
+   - Auf npmjs.com den Trusted Publisher eintragen (Repository, Workflow `main.yml`, Umgebung `npm`). Veröffentlichung per Token noch nicht verbieten.
+2. Erst nach dem Merge nach `master`, unmittelbar vor „Publish release“: Pages-Quelle auf „GitHub Actions“ umstellen (Settings → Pages → Source). Vorher würde ein Release aus dem alten Workflow nicht mehr ausgeliefert, nachher würde der Branch `gh-pages` nicht mehr ausgeliefert.
+3. Nach erfolgreichem Release prüfen, dass https://stadtmessungsamt-stuttgart.github.io/geoline.ol.js/ die neue Version zeigt, dann aufräumen: Regel `gh-pages` in der Umgebung `github-pages` und den Branch `gh-pages` löschen, Secret `NPM_TOKEN` entfernen, auf npmjs.com die Veröffentlichung per Token verbieten.
+
+## Review-Regeln
+- Jede Änderung an `master` läuft über einen Pull Request mit grüner CI.
+- Ein zweites Paar Augen ist Pflicht bei sicherheitsrelevanten Änderungen: Workflows unter `.github/`, `package.json` und `package-lock.json` (neue oder angehobene Abhängigkeiten), HTML-Ausgabe (Popups, `src/html.ts`, Quellenangaben), Konfigurations- und Netzwerkzugriffe (`src/config.ts`, `src/request-cache.ts`).
+- Veröffentlicht wird erst nach Freigabe durch eine der in der Umgebung `npm` eingetragenen Personen (Required reviewers).
+- Breaking Changes stehen vor dem Merge im CHANGELOG und im Migrationsleitfaden.

@@ -38,10 +38,6 @@ module.exports = {
     },
     resolve: {
         extensions: ['.js', '.ts'],
-        alias: {
-            // optional: Alias auf lokale SRC, damit die Beispiele wie in dev funktionieren
-            '@src': path.resolve(__dirname, 'src'),
-        },
     },
     module: {
         rules: [
@@ -53,15 +49,9 @@ module.exports = {
             // TypeScript-Beispiele unterstützen, ohne separates tsconfig zu benötigen
             {
                 test: /\.ts$/i,
-                use: [
-                    {
-                        loader: 'ts-loader',
-                        options: {
-                            transpileOnly: true,
-                            compilerOptions: {module: 'ESNext', moduleResolution: 'Bundler'}
-                        },
-                    },
-                ],
+                // Nur Transpilieren; Typprüfung übernimmt tsc (TypeScript 7 hat keine JS-API für ts-loader)
+                loader: 'esbuild-loader',
+                options: {loader: 'ts', target: 'es2020'},
             },
         ],
     },
@@ -87,11 +77,6 @@ module.exports = {
                         }
                         return content;
                     },
-                },
-                // Optional: ol.css direkt zugänglich machen
-                {
-                    from: path.resolve(__dirname, 'node_modules/ol/ol.css'),
-                    to: path.resolve(__dirname, 'demo/ol.css'),
                 },
             ],
         }),

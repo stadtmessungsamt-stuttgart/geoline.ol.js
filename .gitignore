@@ -2,6 +2,12 @@
 node_modules/
 demo/
 
+# Gebaute Artefakte: nur im npm-Paket, nicht im Repository
+dist/
+.pack/
+.consumers/
+consumers/*/dist/
+
 # Parcel Cache
 .cache
 .parcel-cache
@@ -15,3 +21,6 @@ demo/
 # Temporäre Dateien
 .DS_Store
 Thumbs.db
+
+# Cypress-Artefakte
+cypress/screenshots/
