@@ -1,5 +1,6 @@
-import StmaOpenLayers from "@stadtmessungsamt-stuttgart/geoline.ol.js/dist/geoline.ol.js";
-import "@stadtmessungsamt-stuttgart/geoline.ol.js/src/geoline.ol.css";
+import StmaOpenLayers from "@stadtmessungsamt-stuttgart/geoline.ol.js";
+import "ol/ol.css";
+import "@stadtmessungsamt-stuttgart/geoline.ol.js/geoline.ol.css";
 
 import styleIcon from "ol/style/Icon.js";
 import styleFill from "ol/style/Fill.js";
@@ -17,13 +18,9 @@ mymap.initMap(
     {
         zoom: 5,
         center: [ 509000, 5404400 ],
-    },
-    {},
-    {},
-    function (map) {
-        console.log("initMap wurde ausgeführt");
     }
 );
+console.log("initMap wurde ausgeführt");
 mymap.addStmaBaseLayer("Basemap");
 
 //Aussehen definieren
@@ -52,31 +49,34 @@ const _styleFunction = function (feature) {
     return _styles[feature.getGeometry().getType()];
 };
 
-mymap.addGeoJSON(example_4326JSON, false, _styleFunction, function (_layer) {
-    if (_layer !== false) {
-        console.info("Features aus GeoJSON hinzugefügt.")
+const geojsonResult = mymap.addGeoJSON(example_4326JSON, false, _styleFunction);
+if (geojsonResult.ok) {
+    console.log("Features aus GeoJSON hinzugefügt.");
 
-        const _overlayFunction = function (_feature) {
-            const _data = _feature.get("label"); //Es wird der Inhalt des Attributes label aus dem GeoJSON angezeigt.
-            if (_data != null) {
-                return _data;
-            } else {
-                return "Keine weiteren Informationen vorhanden."
-            }
-        };
+    const _overlayFunction = function (_feature) {
+        const _data = _feature.get("label"); //Es wird der Inhalt des Attributes label aus dem GeoJSON angezeigt.
+        if (_data != null) {
+            return _data;
+        } else {
+            return "Keine weiteren Informationen vorhanden."
+        }
+    };
 
-        mymap.addOverlayForLayer(_layer, _overlayFunction);
-    }
-});
+    mymap.addOverlayForLayer(geojsonResult.value, _overlayFunction);
+} else {
+    console.warn(geojsonResult.error.code, geojsonResult.error.message);
+}
 
-mymap.addGeoJSONfromURL(example_25832JSON_URL, false, _styleFunction, function (_layer) {
-    if (_layer !== false) {
-        console.info("Features aus GeoJSON per URL hinzugefügt.");
+mymap.addGeoJSONfromURL(example_25832JSON_URL, false, _styleFunction).then((result) => {
+    if (result.ok) {
+        console.log("Features aus GeoJSON per URL hinzugefügt.");
 
         var _overlayFunction2 = function (_feature) {
             return _feature.get("HINWEIS"); //Es wird der Inhalt des Attributes HINWEIS aus dem GeoJSON angezeigt.
         };
 
-        mymap.addOverlayForLayer(_layer, _overlayFunction2);
+        mymap.addOverlayForLayer(result.value, _overlayFunction2);
+    } else {
+        console.warn(result.error.code, result.error.message);
     }
 });

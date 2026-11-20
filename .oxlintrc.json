@@ -1,0 +1,18 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "jsPlugins": [{"name": "jsdoc-js", "specifier": "eslint-plugin-jsdoc"}],
+  "rules": {
+    "jsdoc-js/require-jsdoc": ["error", {
+      "publicOnly": false,
+      "require": {"FunctionDeclaration": false, "MethodDefinition": false, "ClassDeclaration": false},
+      "contexts": [
+        "MethodDefinition:not([accessibility='private']):not([key.type='PrivateIdentifier'])",
+        "ExportNamedDeclaration > FunctionDeclaration",
+        "ExportNamedDeclaration > ClassDeclaration",
+        "ExportDefaultDeclaration > ClassDeclaration"
+      ]
+    }],
+    "jsdoc-js/require-param": "error",
+    "jsdoc-js/require-param-description": "error"
+  }
+}

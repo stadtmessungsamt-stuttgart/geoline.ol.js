@@ -1,0 +1,10 @@
+# Hält die per Commit-SHA gepinnten Actions aktuell (Pull Request mit neuer SHA und Versionskommentar)
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

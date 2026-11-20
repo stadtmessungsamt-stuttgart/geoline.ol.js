@@ -1,55 +1,89 @@
-@import url("ol/ol.css");
-
-body {
-	font-family: sans-serif;
+/*
+ * Styles für Karten von geoline.ol.js. Sie gelten nur innerhalb von .geoline-ol-js-map (Viewport der Karte)
+ * und für das Popup; die übrige Seite bleibt unberührt. Anpassen über die CSS-Variablen, z. B.:
+ *   .geoline-ol-js-map { --geoline-accent: #005a9c; --geoline-accent-text: #fff; }
+ */
+.geoline-ol-js-map {
+    --geoline-font-family: sans-serif;
+    --geoline-accent: #eab811;
+    --geoline-accent-text: #1a1a1a;
+    --geoline-focus: #1a1a1a;
+    --geoline-attribution-font-size: 0.75rem;
+    --geoline-popup-background: #fff;
+    --geoline-popup-text: #1a1a1a;
+    --geoline-popup-border: #767676;
+    font-family: var(--geoline-font-family);
 }
 
-.ol-control button {
-	cursor: pointer;
-	background-color: #eab811;
+.geoline-ol-js-map .ol-control button,
+.geoline-ol-js-map .ol-control button:hover,
+.geoline-ol-js-map .ol-control button:focus {
+    cursor: pointer;
+    background-color: var(--geoline-accent);
+    color: var(--geoline-accent-text);
 }
 
-.ol-control button:focus {
-	cursor: pointer;
-	background-color: #eab811;
+.geoline-ol-js-map .ol-control button:hover {
+    outline: 1px solid var(--geoline-accent-text);
 }
 
-.ol-control button:hover {
-	background-color: #eab811;
-	color: #999999;
-	border: 1px solid #999999;
+.geoline-ol-js-map .ol-control button:focus-visible,
+.geoline-ol-js-popup .close:focus-visible,
+.geoline-ol-js-popup:focus-visible {
+    outline: 2px solid var(--geoline-focus);
+    outline-offset: 1px;
 }
 
-.ol-attribution li {
-	display: block;
-	text-align: left;
+.geoline-ol-js-map .ol-attribution li {
+    display: block;
+    text-align: left;
 }
 
-.ol-attribution ul {
-    font-size: 10px;
+.geoline-ol-js-map .ol-attribution ul {
+    font-size: var(--geoline-attribution-font-size);
 }
 
-/* Overlay */
-#geoline_ol_js_popup {
-    background-color: #fff;
+/* Popup: div.geoline-ol-js-popup > div.arrow, button.close, div.content */
+.geoline-ol-js-popup {
+    position: relative;
+    background-color: var(--geoline-popup-background);
+    color: var(--geoline-popup-text);
     border-radius: .2rem;
-	border: 1px solid #D1D1D1;
+    border: 1px solid var(--geoline-popup-border);
 }
 
-#geoline_ol_js_popup > div {
+.geoline-ol-js-popup > div {
     padding: 5px;
 }
 
-#geoline_ol_js_popup .header {
-    border-bottom: unset;
+.geoline-ol-js-popup .content {
+    padding-right: 1.75rem;
+}
+
+.geoline-ol-js-popup .close {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.geoline-ol-js-popup .header {
     box-sizing: border-box;
     border-top-right-radius: .2rem;
     border-top-left-radius: .2rem;
     background-color: #f7f7f7;
-    border-bottom: 1px solid #D1D1D1;
+    border-bottom: 1px solid var(--geoline-popup-border);
 }
 
-#geoline_ol_js_popup .arrow {
+.geoline-ol-js-popup .arrow {
     bottom: calc(-.5rem - 1px);
     position: absolute;
     padding: unset;
@@ -58,25 +92,23 @@ body {
     height: 0.5rem;
 }
 
-#geoline_ol_js_popup .arrow::after,
-#geoline_ol_js_popup .arrow::before {
+.geoline-ol-js-popup .arrow::after,
+.geoline-ol-js-popup .arrow::before {
     position: absolute;
     display: block;
     content: "";
     box-sizing: border-box;
     border-color: transparent;
-    border-top-color: transparent;
     border-style: solid;
+    border-width: .5rem .5rem 0;
 }
 
-#geoline_ol_js_popup .arrow::after {
+.geoline-ol-js-popup .arrow::after {
     bottom: 1px;
-    border-width: .5rem .5rem 0;
-    border-top-color: #fff;
+    border-top-color: var(--geoline-popup-background);
 }
 
-#geoline_ol_js_popup .arrow::before {
+.geoline-ol-js-popup .arrow::before {
     bottom: 0;
-    border-width: .5rem .5rem 0;
-    border-top-color: #D1D1D1;
+    border-top-color: var(--geoline-popup-border);
 }
